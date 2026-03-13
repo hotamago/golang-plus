@@ -1,6 +1,14 @@
 [package]
-name = "golang-plus"
+name = "goplus"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = "1.0.98"
+clap = { version = "4.5.39", features = ["derive"] }
+logos = "0.15.0"
+regex = "1.11.1"
+thiserror = "2.0.12"
+
+[dev-dependencies]
+tempfile = "3.20.0"
