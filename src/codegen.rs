@@ -406,7 +406,7 @@ impl<'a> GoGenerator<'a> {
             "log" => self.emit_log_wrapper(sig, wrapper_name, prev_name),
             "retry" => self.emit_retry_wrapper(sig, wrapper_name, prev_name, decorator),
             "memoize" if allow_memoize => self.emit_memoize_wrapper(sig, wrapper_name, prev_name),
-            _ => self.emit_forward_function(sig, wrapper_name, prev_name),
+            _ => self.emit_custom_wrapper(sig, wrapper_name, prev_name, decorator),
         }
     }
 
@@ -597,6 +597,40 @@ impl<'a> GoGenerator<'a> {
         out.push_str(&format!("\t{}[key] = result\n", cache_name));
         out.push_str(&format!("\t{}.Unlock()\n", mu_name));
         out.push_str("\treturn result\n");
+        out.push_str("}");
+        out
+    }
+
+    fn emit_custom_wrapper(
+        &mut self,
+        sig: &FnSignature,
+        wrapper_name: &str,
+        prev_name: &str,
+        decorator: &Decorator,
+    ) -> String {
+        let mut out = String::new();
+        out.push_str(&render_signature(sig, wrapper_name));
+        out.push_str(" {\n");
+
+        let mut factory_args = vec![call_target_expr(sig, prev_name)];
+        factory_args.extend(
+            decorator
+                .args
+                .iter()
+                .map(|arg| self.transform_expr(arg))
+                .collect::<Vec<_>>(),
+        );
+
+        out.push_str(&format!(
+            "\tdecorated := {}({})\n",
+            decorator.name,
+            factory_args.join(", ")
+        ));
+        let call = call_value_expr(sig, "decorated");
+        match sig.ret {
+            ReturnType::Void => out.push_str(&format!("\t{}\n", call)),
+            _ => out.push_str(&format!("\treturn {}\n", call)),
+        }
         out.push_str("}");
         out
     }
@@ -1095,17 +1129,25 @@ fn render_signature(sig: &FnSignature, go_name: &str) -> String {
 }
 
 fn call_expr(sig: &FnSignature, target_name: &str) -> String {
+    call_value_expr(sig, &call_target_expr(sig, target_name))
+}
+
+fn call_target_expr(sig: &FnSignature, target_name: &str) -> String {
+    if sig.receiver.is_some() {
+        format!("self.{}", target_name)
+    } else {
+        target_name.to_string()
+    }
+}
+
+fn call_value_expr(sig: &FnSignature, callee_expr: &str) -> String {
     let args = sig
         .params
         .iter()
         .map(|param| param.name.clone())
         .collect::<Vec<_>>()
         .join(", ");
-    if sig.receiver.is_some() {
-        format!("self.{}({})", target_name, args)
-    } else {
-        format!("{}({})", target_name, args)
-    }
+    format!("{}({})", callee_expr, args)
 }
 
 fn render_return_type(ret: &ReturnType) -> String {
@@ -1243,6 +1285,27 @@ fn load(path: string) -> string! {
         assert!(go.contains("func load("));
         assert!(go.contains("for attempt := 0; attempt < 3; attempt++"));
         assert!(go.contains("[goplus] enter load"));
+    }
+
+    #[test]
+    fn generates_custom_decorator_wrapper() {
+        let src = r#"
+package main
+
+fn trace(next: func(path string) (string, error), label: string) -> func(path string) (string, error) {
+    return next
+}
+
+@trace("io")
+fn load(path: string) -> string! {
+    return "ok"
+}
+"#;
+        let mut program = parse_program(src).expect("parse ok");
+        let model = analyze(&mut program).expect("sema ok");
+        let go = generate_go(&program, &model);
+        assert!(go.contains("decorated := trace(load__inner, \"io\")"));
+        assert!(go.contains("return decorated(path)"));
     }
 
     #[test]

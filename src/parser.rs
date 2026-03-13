@@ -125,7 +125,7 @@ impl<'a> Parser<'a> {
 
     fn parse_annotation(&mut self) -> Option<Decorator> {
         let at = self.expect_token(TokenKind::At, "expected `@`")?;
-        let name = self.parse_ident("expected decorator name")?;
+        let name = self.parse_decorator_name()?;
         let mut args = Vec::new();
         let mut end = at.span.end;
 
@@ -154,6 +154,16 @@ impl<'a> Parser<'a> {
             args,
             span: at.span.start..end,
         })
+    }
+
+    fn parse_decorator_name(&mut self) -> Option<String> {
+        let mut name = self.parse_ident("expected decorator name")?;
+        while self.consume(TokenKind::Dot) {
+            let segment = self.parse_ident("expected decorator name segment after `.`")?;
+            name.push('.');
+            name.push_str(&segment);
+        }
+        Some(name)
     }
 
     fn parse_struct_decl(&mut self, annotations: Vec<Decorator>) -> Option<StructDecl> {
@@ -1088,5 +1098,23 @@ fn show(r: Result<int, string>) -> string {
             match_stmt.arms[0].pattern,
             Pattern::Variant { .. }
         ));
+    }
+
+    #[test]
+    fn parse_qualified_decorator_name() {
+        let src = r#"
+package main
+
+@decorators.trace("svc")
+fn run() {
+    return
+}
+"#;
+        let program = parse_program(src).expect("parse should succeed");
+        let fn_decl = match &program.items[0] {
+            Item::Function(it) => it,
+            _ => panic!("expected function"),
+        };
+        assert_eq!(fn_decl.decorators[0].name, "decorators.trace");
     }
 }

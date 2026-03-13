@@ -372,10 +372,10 @@ fn validate_decorators(
                     }
                 }
             }
-            other => diagnostics.push(Diagnostic::new(
-                format!("unknown decorator `@{other}`"),
-                Some(decorator.span.clone()),
-            )),
+            _ => {
+                // Custom decorators are allowed.
+                // They are emitted as decorator-factory wrappers in Go codegen.
+            }
         }
     }
 }
@@ -413,18 +413,23 @@ mod tests {
     use crate::{parser::parse_program, sema::analyze};
 
     #[test]
-    fn rejects_unknown_decorator() {
+    fn allows_custom_decorator() {
         let src = r#"
 package main
 
 @foo
-fn run() {
-    return
+fn foo(next: func() string) -> func() string {
+    return next
+}
+
+@foo
+fn run() -> string {
+    return "ok"
 }
 "#;
         let mut program = parse_program(src).expect("parse ok");
         let result = analyze(&mut program);
-        assert!(result.is_err());
+        assert!(result.is_ok());
     }
 
     #[test]

@@ -165,24 +165,28 @@ fn main() -> ! {
     }
 
     #[test]
-    fn check_fails_on_unknown_decorator() {
+    fn transpile_allows_custom_decorator() {
         let dir = tempdir().expect("tempdir");
-        let src = dir.path().join("broken.gp");
+        let src = dir.path().join("custom.gp");
         fs::write(
             &src,
             r#"
 package main
 
-@unknown
-fn main() {
-    return
+fn trace(next: func() string, label: string) -> func() string {
+    return next
+}
+
+@trace("svc")
+fn main() -> string {
+    return "ok"
 }
 "#,
         )
         .expect("write");
         let out_dir = dir.path().join(".goplusgen");
         let result = transpile_file(&src, &out_dir);
-        assert!(result.is_err());
+        assert!(result.is_ok());
     }
 
     #[test]
