@@ -2,8 +2,8 @@ package main
 
 import "fmt"
 
-fn trace(next: func(name string) (string, error), label: string) -> func(name string) (string, error) {
-    return func(name string) (string, error) {
+fn trace(next: (fn(name: string) -> string!), label: string) -> (fn(name: string) -> string!) {
+    return fn(name: string) -> string! {
         fmt.Println("trace:", label)
         return next(name)
     }
