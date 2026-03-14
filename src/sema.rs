@@ -391,6 +391,8 @@ fn is_comparable_type(ty: &str) -> bool {
     !trimmed.starts_with("[]")
         && !trimmed.starts_with("map[")
         && !trimmed.starts_with("func(")
+        && !trimmed.starts_with("fn(")
+        && !trimmed.starts_with("(fn(")
         && !trimmed.contains("[]")
 }
 

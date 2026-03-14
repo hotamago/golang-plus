@@ -78,7 +78,7 @@ impl<'a> GoGenerator<'a> {
         let mut out = String::new();
         out.push_str(&format!("type {} struct {{\n", struct_decl.name));
         for field in &struct_decl.fields {
-            out.push_str(&format!("\t{} {}\n", field.name, field.ty.raw.trim()));
+            out.push_str(&format!("\t{} {}\n", field.name, render_type_ref(&field.ty)));
         }
         out.push('}');
 
@@ -200,7 +200,7 @@ impl<'a> GoGenerator<'a> {
                     "\t{}{} {}\n",
                     lower_ident(&variant.name),
                     idx,
-                    payload_ty.raw.trim()
+                    render_type_ref(payload_ty)
                 ));
             }
         }
@@ -214,7 +214,7 @@ impl<'a> GoGenerator<'a> {
                 .payload
                 .iter()
                 .enumerate()
-                .map(|(idx, ty)| format!("v{} {}", idx, ty.raw.trim()))
+                .map(|(idx, ty)| format!("v{} {}", idx, render_type_ref(ty)))
                 .collect::<Vec<_>>()
                 .join(", ");
             let mut inits = vec![format!("tag: {}Tag{}", enum_decl.name, variant.name)];
@@ -560,13 +560,13 @@ impl<'a> GoGenerator<'a> {
         let ret_ty = sig
             .ret
             .value_type()
-            .map(|t| t.raw.trim().to_string())
+            .map(|t| render_type_ref(t))
             .unwrap_or_else(|| "interface{}".to_string());
 
         let mut out = String::new();
         out.push_str(&format!("type {} struct {{\n", key_type));
         for (idx, param) in sig.params.iter().enumerate() {
-            out.push_str(&format!("\tP{} {}\n", idx, param.ty.raw.trim()));
+            out.push_str(&format!("\tP{} {}\n", idx, render_type_ref(&param.ty)));
         }
         out.push_str("}\n\n");
         out.push_str(&format!("var {} sync.Mutex\n", mu_name));
@@ -1085,6 +1085,7 @@ impl<'a> GoGenerator<'a> {
                 }
             }
         }
+        out = rewrite_fn_syntax(&out);
         out
     }
 
@@ -1118,7 +1119,7 @@ fn render_signature(sig: &FnSignature, go_name: &str) -> String {
     let params = sig
         .params
         .iter()
-        .map(|param| format!("{} {}", param.name, param.ty.raw.trim()))
+        .map(|param| format!("{} {}", param.name, render_type_ref(&param.ty)))
         .collect::<Vec<_>>()
         .join(", ");
     let ret = render_return_type(&sig.ret);
@@ -1153,9 +1154,9 @@ fn call_value_expr(sig: &FnSignature, callee_expr: &str) -> String {
 fn render_return_type(ret: &ReturnType) -> String {
     match ret {
         ReturnType::Void => String::new(),
-        ReturnType::Type(ty) => format!(" {}", ty.raw.trim()),
+        ReturnType::Type(ty) => format!(" {}", render_type_ref(ty)),
         ReturnType::ErrorOnly => " error".to_string(),
-        ReturnType::TypeWithError(ty) => format!(" ({}, error)", ty.raw.trim()),
+        ReturnType::TypeWithError(ty) => format!(" ({}, error)", render_type_ref(ty)),
     }
 }
 
@@ -1185,6 +1186,255 @@ fn render_type_args(type_params: &[String]) -> String {
     format!("[{}]", type_params.join(", "))
 }
 
+fn render_type_ref(ty: &TypeRef) -> String {
+    normalize_go_type(&ty.raw)
+}
+
+fn normalize_go_type(raw: &str) -> String {
+    rewrite_fn_syntax(raw.trim())
+}
+
+fn rewrite_fn_syntax(input: &str) -> String {
+    let mut out = input.to_string();
+    loop {
+        let (next, changed) = rewrite_fn_syntax_once(&out);
+        out = next;
+        if !changed {
+            return out;
+        }
+    }
+}
+
+fn rewrite_fn_syntax_once(input: &str) -> (String, bool) {
+    let bytes = input.as_bytes();
+    if bytes.len() < 2 {
+        return (input.to_string(), false);
+    }
+
+    let mut i = 0usize;
+    while i + 1 < bytes.len() {
+        if bytes[i] == b'f'
+            && bytes[i + 1] == b'n'
+            && is_ident_boundary_before(bytes, i)
+            && is_ident_boundary_after(bytes, i + 2)
+        {
+            let mut j = i + 2;
+            while j < bytes.len() && bytes[j].is_ascii_whitespace() {
+                j += 1;
+            }
+            if j >= bytes.len() || bytes[j] != b'(' {
+                i += 1;
+                continue;
+            }
+
+            let Some(params_end) = find_matching_paren(input, j) else {
+                i += 1;
+                continue;
+            };
+            let params = &input[j + 1..params_end];
+
+            let mut k = params_end + 1;
+            while k < bytes.len() && bytes[k].is_ascii_whitespace() {
+                k += 1;
+            }
+            if k + 1 >= bytes.len() || &input[k..k + 2] != "->" {
+                i += 1;
+                continue;
+            }
+            k += 2;
+            while k < bytes.len() && bytes[k].is_ascii_whitespace() {
+                k += 1;
+            }
+            let ret_end = find_type_segment_end(input, k);
+            let ret_raw = &input[k..ret_end];
+
+            let rendered_params = render_fn_params(params);
+            let rendered_ret = render_fn_return(ret_raw);
+            let replacement = format!("func({}) {}", rendered_params, rendered_ret);
+
+            let mut out = String::new();
+            out.push_str(&input[..i]);
+            out.push_str(&replacement);
+            out.push_str(&input[ret_end..]);
+            return (out, true);
+        }
+        i += 1;
+    }
+
+    (input.to_string(), false)
+}
+
+fn render_fn_params(raw: &str) -> String {
+    split_top_level(raw, ',')
+        .into_iter()
+        .filter_map(|segment| {
+            let trimmed = segment.trim();
+            if trimmed.is_empty() {
+                return None;
+            }
+            if let Some(colon) = find_top_level_char(trimmed, ':') {
+                let name = trimmed[..colon].trim();
+                let ty = trimmed[colon + 1..].trim();
+                if name.is_empty() {
+                    Some(normalize_go_type(ty))
+                } else {
+                    Some(format!("{} {}", name, normalize_go_type(ty)))
+                }
+            } else {
+                Some(normalize_go_type(trimmed))
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn render_fn_return(raw: &str) -> String {
+    let trimmed = raw.trim();
+    if trimmed == "!" {
+        return "error".to_string();
+    }
+    if let Some(value_ty) = trimmed.strip_suffix('!') {
+        let value_ty = value_ty.trim();
+        if value_ty.is_empty() {
+            return "error".to_string();
+        }
+        return format!("({}, error)", normalize_go_type(value_ty));
+    }
+    normalize_go_type(trimmed)
+}
+
+fn split_top_level(input: &str, delim: char) -> Vec<&str> {
+    let mut parts = Vec::new();
+    let mut start = 0usize;
+    let mut paren = 0usize;
+    let mut bracket = 0usize;
+    let mut brace = 0usize;
+    let mut angle = 0usize;
+
+    for (idx, ch) in input.char_indices() {
+        match ch {
+            '(' => paren += 1,
+            ')' => paren = paren.saturating_sub(1),
+            '[' => bracket += 1,
+            ']' => bracket = bracket.saturating_sub(1),
+            '{' => brace += 1,
+            '}' => brace = brace.saturating_sub(1),
+            '<' => angle += 1,
+            '>' => angle = angle.saturating_sub(1),
+            _ => {}
+        }
+        if ch == delim && paren == 0 && bracket == 0 && brace == 0 && angle == 0 {
+            parts.push(&input[start..idx]);
+            start = idx + ch.len_utf8();
+        }
+    }
+    parts.push(&input[start..]);
+    parts
+}
+
+fn find_top_level_char(input: &str, needle: char) -> Option<usize> {
+    let mut paren = 0usize;
+    let mut bracket = 0usize;
+    let mut brace = 0usize;
+    let mut angle = 0usize;
+
+    for (idx, ch) in input.char_indices() {
+        match ch {
+            '(' => paren += 1,
+            ')' => paren = paren.saturating_sub(1),
+            '[' => bracket += 1,
+            ']' => bracket = bracket.saturating_sub(1),
+            '{' => brace += 1,
+            '}' => brace = brace.saturating_sub(1),
+            '<' => angle += 1,
+            '>' => angle = angle.saturating_sub(1),
+            _ => {}
+        }
+        if ch == needle && paren == 0 && bracket == 0 && brace == 0 && angle == 0 {
+            return Some(idx);
+        }
+    }
+    None
+}
+
+fn find_matching_paren(input: &str, open_idx: usize) -> Option<usize> {
+    let bytes = input.as_bytes();
+    if open_idx >= bytes.len() || bytes[open_idx] != b'(' {
+        return None;
+    }
+    let mut depth = 0usize;
+    for (idx, b) in bytes.iter().enumerate().skip(open_idx) {
+        if *b == b'(' {
+            depth += 1;
+        } else if *b == b')' {
+            depth = depth.saturating_sub(1);
+            if depth == 0 {
+                return Some(idx);
+            }
+        }
+    }
+    None
+}
+
+fn find_type_segment_end(input: &str, start: usize) -> usize {
+    let bytes = input.as_bytes();
+    let mut i = start;
+    let mut paren = 0usize;
+    let mut bracket = 0usize;
+    let mut brace = 0usize;
+    let mut angle = 0usize;
+
+    while i < bytes.len() {
+        let b = bytes[i];
+        match b {
+            b'(' => paren += 1,
+            b')' => {
+                if paren > 0 {
+                    paren -= 1;
+                } else if bracket == 0 && brace == 0 && angle == 0 {
+                    break;
+                }
+            }
+            b'[' => bracket += 1,
+            b']' => bracket = bracket.saturating_sub(1),
+            b'{' => {
+                if paren == 0 && bracket == 0 && brace == 0 && angle == 0 {
+                    break;
+                }
+                brace += 1;
+            }
+            b'}' => brace = brace.saturating_sub(1),
+            b'<' => angle += 1,
+            b'>' => angle = angle.saturating_sub(1),
+            b',' | b';' | b'\n' | b'\r' => {
+                if paren == 0 && bracket == 0 && brace == 0 && angle == 0 {
+                    break;
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+
+    i
+}
+
+fn is_ident_boundary_before(bytes: &[u8], idx: usize) -> bool {
+    if idx == 0 {
+        return true;
+    }
+    let b = bytes[idx - 1];
+    !b.is_ascii_alphanumeric() && b != b'_'
+}
+
+fn is_ident_boundary_after(bytes: &[u8], idx: usize) -> bool {
+    if idx >= bytes.len() {
+        return true;
+    }
+    let b = bytes[idx];
+    !b.is_ascii_alphanumeric() && b != b'_'
+}
+
 fn lower_ident(input: &str) -> String {
     let mut chars = input.chars();
     if let Some(first) = chars.next() {
@@ -1199,7 +1449,8 @@ fn lower_ident(input: &str) -> String {
 }
 
 fn zero_value_expr(ty: &str) -> String {
-    let trimmed = ty.trim();
+    let normalized = normalize_go_type(ty);
+    let trimmed = normalized.trim();
     if trimmed == "string" {
         return "\"\"".to_string();
     }
@@ -1306,6 +1557,27 @@ fn load(path: string) -> string! {
         let go = generate_go(&program, &model);
         assert!(go.contains("decorated := trace(load__inner, \"io\")"));
         assert!(go.contains("return decorated(path)"));
+    }
+
+    #[test]
+    fn normalizes_fn_style_types_and_literals() {
+        let src = r#"
+package main
+
+fn trace(next: (fn(path: string) -> string!), label: string) -> (fn(path: string) -> string!) {
+    wrapped := fn(path: string) -> string! {
+        return next(path)
+    }
+    return wrapped
+}
+"#;
+        let mut program = parse_program(src).expect("parse ok");
+        let model = analyze(&mut program).expect("sema ok");
+        let go = generate_go(&program, &model);
+        assert!(go.contains(
+            "func trace(next (func(path string) (string, error)), label string) (func(path string) (string, error))"
+        ));
+        assert!(go.contains("wrapped := func(path string) (string, error)"));
     }
 
     #[test]
