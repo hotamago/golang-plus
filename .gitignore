@@ -1,2 +1,5 @@
 /target
 /.goplusgen
+.goplusgen/
+.gocache/
+.gotmp/

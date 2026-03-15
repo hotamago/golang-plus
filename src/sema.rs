@@ -9,32 +9,48 @@ pub struct SemanticModel {
 }
 
 pub fn analyze(program: &mut Program) -> Result<SemanticModel, Vec<Diagnostic>> {
-    let mut diagnostics = Vec::new();
+    let model = build_model(std::iter::once(&*program));
+    analyze_with_model(program, &model)?;
+    Ok(model)
+}
+
+pub fn build_model<'a>(programs: impl IntoIterator<Item = &'a Program>) -> SemanticModel {
     let mut model = SemanticModel::default();
 
-    for item in &program.items {
-        match item {
-            Item::Enum(enum_decl) => {
-                model
-                    .enums
-                    .insert(enum_decl.name.clone(), enum_decl.clone());
-            }
-            Item::Function(fn_decl) => {
-                model
-                    .function_returns
-                    .insert(fn_decl.name.clone(), fn_decl.ret.clone());
-            }
-            Item::Impl(impl_block) => {
-                for method in &impl_block.methods {
-                    model.function_returns.insert(
-                        format!("{}.{}", base_enum_name(&impl_block.target), method.name),
-                        method.ret.clone(),
-                    );
+    for program in programs {
+        for item in &program.items {
+            match item {
+                Item::Enum(enum_decl) => {
+                    model
+                        .enums
+                        .insert(enum_decl.name.clone(), enum_decl.clone());
                 }
+                Item::Function(fn_decl) => {
+                    model
+                        .function_returns
+                        .insert(fn_decl.name.clone(), fn_decl.ret.clone());
+                }
+                Item::Impl(impl_block) => {
+                    for method in &impl_block.methods {
+                        model.function_returns.insert(
+                            format!("{}.{}", base_enum_name(&impl_block.target), method.name),
+                            method.ret.clone(),
+                        );
+                    }
+                }
+                Item::Struct(_) => {}
             }
-            Item::Struct(_) => {}
         }
     }
+
+    model
+}
+
+pub fn analyze_with_model(
+    program: &mut Program,
+    model: &SemanticModel,
+) -> Result<(), Vec<Diagnostic>> {
+    let mut diagnostics = Vec::new();
 
     for item in &mut program.items {
         match item {
@@ -51,7 +67,7 @@ pub fn analyze(program: &mut Program) -> Result<SemanticModel, Vec<Diagnostic>> 
     }
 
     if diagnostics.is_empty() {
-        Ok(model)
+        Ok(())
     } else {
         Err(diagnostics)
     }

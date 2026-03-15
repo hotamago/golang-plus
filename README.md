@@ -37,6 +37,10 @@ Long-term vision:
 - Error sugar: `-> T!`, `-> !`, `expr?`.
 - `match` with enum exhaustive checking.
 - `@derive(String)` for struct/enum.
+- Package compilation:
+  - Passing a `.gp` file compiles the whole package directory, not just that file.
+  - Sibling `.gp` files are merged at module/package level.
+  - Sibling `.go` files are copied into the generated package so Go and GoPlus code can link together.
 - Compile-time decorators:
   - Built-in: `@log`, `@retry(times[, backoff_ms])`, `@memoize`.
   - Custom decorators (Python-like factory style: `next -> wrapped`).
@@ -59,6 +63,18 @@ cargo run -- check examples/demo.gp
 cargo run -- transpile examples/demo.gp --out-dir .goplusgen
 cargo run -- run examples/demo.gp --out-dir .goplusgen
 ```
+
+`goplus` treats the provided `.gp` path as the entry into its containing package directory.
+If you point it at a directory instead, it will compile every `*.gp` file in that directory and link any sibling `*.go` files in the same package.
+
+Mixed-source example:
+
+```bash
+cargo run -- run examples/link-source/main.gp --out-dir .goplusgen
+```
+
+The `examples/link-source` sample now includes a real `go.mod` plus nested `pkg/...` and `internal/...` packages, so it shows both same-package linking and normal imported package boundaries.
+Most of that example is written in `.gp`; it keeps only one `.go` bridge file to demonstrate GoPlus/Go interop explicitly.
 
 ## Short Example
 
@@ -117,7 +133,6 @@ fn load(path: string) -> string! {
 
 ### Mid-term (v2)
 
-- Multi-file module-level compilation for `*.gp` projects.
 - Tooling support: formatter/lint for goplus source.
 - Better IDE/devex (source mapping and navigation between `.gp` and generated `.go`).
 - Richer derive set and stronger decorator signature validation.
