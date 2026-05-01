@@ -41,6 +41,7 @@ impl<'a> Parser<'a> {
             name,
             fields,
             derives,
+            source: None,
             span: start..end.map(|t| t.span.end).unwrap_or(start),
         })
     }
@@ -101,6 +102,7 @@ impl<'a> Parser<'a> {
             type_params,
             variants,
             derives,
+            source: None,
             span: start..end.map(|t| t.span.end).unwrap_or(start),
         })
     }
@@ -139,6 +141,7 @@ impl<'a> Parser<'a> {
         Some(ImplBlock {
             target,
             methods,
+            source: None,
             span: start..end.map(|t| t.span.end).unwrap_or(start),
         })
     }
@@ -160,6 +163,7 @@ impl<'a> Parser<'a> {
             ret,
             body,
             decorators,
+            source: None,
             span: start..end,
         })
     }

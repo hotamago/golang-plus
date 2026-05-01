@@ -67,23 +67,31 @@ pub(super) fn analyze_match_stmt(
                         ..
                     } => {
                         if base_enum_name(enum_name) != enum_decl.name {
-                            diagnostics.push(Diagnostic::new(
-                                format!(
-                                    "match arm uses enum `{}` but expected `{}`",
-                                    base_enum_name(enum_name),
-                                    enum_decl.name
-                                ),
-                                Some(arm.span.clone()),
-                            ));
+                            diagnostics.push(
+                                Diagnostic::new(
+                                    format!(
+                                        "match arm uses enum `{}` but expected `{}`",
+                                        base_enum_name(enum_name),
+                                        enum_decl.name
+                                    ),
+                                    Some(arm.pattern.span()),
+                                )
+                                .with_code("E0202")
+                                .with_hint(format!("use `{}::{variant}`", enum_decl.name)),
+                            );
                         }
                         if !all_variants.contains(variant) {
-                            diagnostics.push(Diagnostic::new(
-                                format!(
-                                    "unknown variant `{variant}` for enum `{}`",
-                                    enum_decl.name
-                                ),
-                                Some(arm.span.clone()),
-                            ));
+                            diagnostics.push(
+                                Diagnostic::new(
+                                    format!(
+                                        "unknown variant `{variant}` for enum `{}`",
+                                        enum_decl.name
+                                    ),
+                                    Some(arm.pattern.span()),
+                                )
+                                .with_code("E0203")
+                                .with_hint("check the enum variant name in the declaration"),
+                            );
                         }
                         validate_match_variant_payload(
                             enum_decl,
@@ -106,13 +114,17 @@ pub(super) fn analyze_match_stmt(
                         variant, bindings, ..
                     } => {
                         if !all_variants.contains(variant) {
-                            diagnostics.push(Diagnostic::new(
-                                format!(
-                                    "unknown variant `{variant}` for enum `{}`",
-                                    enum_decl.name
-                                ),
-                                Some(arm.span.clone()),
-                            ));
+                            diagnostics.push(
+                                Diagnostic::new(
+                                    format!(
+                                        "unknown variant `{variant}` for enum `{}`",
+                                        enum_decl.name
+                                    ),
+                                    Some(arm.pattern.span()),
+                                )
+                                .with_code("E0203")
+                                .with_hint("check the enum variant name in the declaration"),
+                            );
                         }
                         validate_match_variant_payload(
                             enum_decl,
@@ -153,6 +165,7 @@ pub(super) fn analyze_match_stmt(
                         format!("non-exhaustive match for enum `{}`", enum_decl.name),
                         Some(match_stmt.span.clone()),
                     )
+                    .with_code("E0204")
                     .with_hint(format!("missing variants: {missing}")),
                 );
             }
@@ -163,6 +176,7 @@ pub(super) fn analyze_match_stmt(
                 "cannot resolve enum type for match expression",
                 Some(match_stmt.span.clone()),
             )
+            .with_code("E0205")
             .with_hint("add explicit typed patterns, e.g. `Status::Pending`"),
         );
     }
@@ -189,7 +203,8 @@ fn validate_match_variant_payload(
                 ),
                 Some(arm.pattern.span()),
             )
-            .with_code("E0201"),
+            .with_code("E0201")
+            .with_hint("match payload bindings must match the variant payload count"),
         );
     }
 }

@@ -9,7 +9,7 @@ use std::{
 use anyhow::{Context, Result, anyhow, bail};
 
 use crate::{
-    ast::Program,
+    ast::{Item, Program},
     codegen::generate_go,
     diag::Diagnostic,
     parser::parse_program,
@@ -42,9 +42,9 @@ pub fn transpile_file_with_options(
     out_dir: &Path,
     emit_source_map: bool,
 ) -> Result<()> {
-    let output = transpile_internal(path, out_dir)?;
+    let output = transpile_internal(path, out_dir, emit_source_map)?;
     if emit_source_map {
-        write_source_map_stub(&output)?;
+        write_source_map(&output)?;
     }
     println!("generated {}", output.generated_file.display());
     Ok(())
@@ -56,7 +56,7 @@ pub fn fmt_check_file(path: &Path) -> Result<()> {
 }
 
 pub fn build_file(path: &Path, out_dir: &Path, out_bin: Option<&Path>) -> Result<()> {
-    let output = transpile_internal(path, out_dir)?;
+    let output = transpile_internal(path, out_dir, false)?;
     let out_bin = match out_bin {
         Some(path) => resolve_user_path(path)?,
         None => output.package_dir.join(default_binary_name(path)),
@@ -79,7 +79,7 @@ pub fn build_file(path: &Path, out_dir: &Path, out_bin: Option<&Path>) -> Result
 }
 
 pub fn run_file(path: &Path, out_dir: &Path) -> Result<()> {
-    let output = transpile_internal(path, out_dir)?;
+    let output = transpile_internal(path, out_dir, false)?;
     let mut cmd = Command::new("go");
     cmd.current_dir(&output.go_work_dir);
     cmd.arg("run").args(&output.go_args);
@@ -111,19 +111,16 @@ struct PreparedPackage {
     generated_file: PathBuf,
     go_work_dir: PathBuf,
     go_args: Vec<OsString>,
+    source_map: Option<source_map::SourceMapFile>,
 }
 
-fn write_source_map_stub(output: &PreparedPackage) -> Result<()> {
+fn write_source_map(output: &PreparedPackage) -> Result<()> {
     let map_file = output.generated_file.with_extension("go.map");
-    let generated = output
-        .generated_file
-        .display()
-        .to_string()
-        .replace('\\', "\\\\");
-    let content = format!(
-        "{{\n  \"version\": 1,\n  \"generated\": \"{}\",\n  \"mappings\": []\n}}\n",
-        generated.replace('"', "\\\"")
-    );
+    let source_map = output
+        .source_map
+        .as_ref()
+        .context("source map was not prepared")?;
+    let content = source_map.to_json()?;
     fs::write(&map_file, content)
         .with_context(|| format!("failed to write source map {}", map_file.display()))?;
     println!("generated {}", map_file.display());
@@ -141,6 +138,7 @@ mod emit;
 mod go;
 mod module;
 mod project;
+mod source_map;
 
 use diagnostics::render_unit_diagnostics_with_format;
 use emit::{emit_project_package, transpile_internal};

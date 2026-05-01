@@ -13,7 +13,7 @@ impl<'a> GoGenerator<'a> {
                     ))
                     .expect("valid regex");
                     out = re_generic
-                        .replace_all(&out, format!("{}{}<$1>(", enum_decl.name, variant.name))
+                        .replace_all(&out, format!("{}{}[$1](", enum_decl.name, variant.name))
                         .to_string();
 
                     let re_plain = Regex::new(&format!(

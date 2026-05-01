@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 
 use regex::Regex;
 
@@ -15,7 +15,7 @@ pub fn generate_go(program: &Program, model: &SemanticModel) -> String {
 struct GoGenerator<'a> {
     program: &'a Program,
     model: &'a SemanticModel,
-    imports: BTreeSet<String>,
+    imports: BTreeMap<String, Option<String>>,
     sections: Vec<String>,
     tmp_counter: usize,
     needs_try_helper: bool,
@@ -27,11 +27,26 @@ impl<'a> GoGenerator<'a> {
         Self {
             program,
             model,
-            imports: program.imports.iter().cloned().collect(),
+            imports: program
+                .imports
+                .iter()
+                .map(|import| (import.path.clone(), import.alias.clone()))
+                .collect(),
             sections: Vec::new(),
             tmp_counter: 0,
             needs_try_helper: false,
             needs_main_wrapper: false,
+        }
+    }
+
+    fn import_binding(&mut self, path: &str, default_name: &str) -> String {
+        match self.imports.get(path) {
+            Some(Some(alias)) if alias != "_" && alias != "." => alias.clone(),
+            Some(None) => default_name.to_string(),
+            _ => {
+                self.imports.insert(path.to_string(), None);
+                default_name.to_string()
+            }
         }
     }
 }

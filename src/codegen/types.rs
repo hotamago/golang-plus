@@ -94,7 +94,75 @@ pub(super) fn render_type_ref(ty: &TypeRef) -> String {
 }
 
 pub(super) fn normalize_go_type(raw: &str) -> String {
-    rewrite_fn_syntax(raw.trim())
+    rewrite_generic_type_syntax(&rewrite_fn_syntax(raw.trim()))
+}
+
+pub(super) fn rewrite_generic_type_syntax(input: &str) -> String {
+    let mut out = String::new();
+    let bytes = input.as_bytes();
+    let mut i = 0usize;
+
+    while i < bytes.len() {
+        if is_ident_start(bytes[i]) {
+            let ident_start = i;
+            i += 1;
+            while i < bytes.len() && is_ident_continue(bytes[i]) {
+                i += 1;
+            }
+            out.push_str(&input[ident_start..i]);
+
+            let mut j = i;
+            while j < bytes.len() && bytes[j].is_ascii_whitespace() {
+                j += 1;
+            }
+            if j < bytes.len()
+                && bytes[j] == b'<'
+                && let Some(close) = find_matching_angle(input, j)
+            {
+                out.push('[');
+                out.push_str(&rewrite_generic_type_syntax(&input[j + 1..close]));
+                out.push(']');
+                i = close + 1;
+            }
+        } else {
+            out.push(bytes[i] as char);
+            i += 1;
+        }
+    }
+
+    out
+}
+
+fn find_matching_angle(input: &str, open_idx: usize) -> Option<usize> {
+    let bytes = input.as_bytes();
+    let mut depth = 0usize;
+    let mut paren = 0usize;
+    let mut bracket = 0usize;
+    for (idx, b) in bytes.iter().enumerate().skip(open_idx) {
+        match *b {
+            b'(' => paren += 1,
+            b')' => paren = paren.saturating_sub(1),
+            b'[' => bracket += 1,
+            b']' => bracket = bracket.saturating_sub(1),
+            b'<' if paren == 0 && bracket == 0 => depth += 1,
+            b'>' if paren == 0 && bracket == 0 => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return Some(idx);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn is_ident_start(b: u8) -> bool {
+    b.is_ascii_alphabetic() || b == b'_'
+}
+
+fn is_ident_continue(b: u8) -> bool {
+    b.is_ascii_alphanumeric() || b == b'_'
 }
 
 pub(super) fn rewrite_fn_syntax(input: &str) -> String {
@@ -405,8 +473,8 @@ pub(super) fn is_error_ctor(expr: &str) -> bool {
     expr.trim().starts_with("error(")
 }
 
-pub(super) fn map_error_ctor(expr: &str) -> String {
-    expr.replacen("error(", "errors.New(", 1)
+pub(super) fn map_error_ctor(expr: &str, errors_name: &str) -> String {
+    expr.replacen("error(", &format!("{errors_name}.New("), 1)
 }
 
 pub(super) fn tabs(indent: usize) -> String {

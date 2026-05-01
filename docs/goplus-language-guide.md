@@ -142,7 +142,7 @@ cargo run -- transpile examples/demo.gp --out-dir .goplusgen
 
 The default output directory is `.goplusgen`.
 
-To write initial source map metadata beside the generated Go file:
+To write source map JSON beside the generated Go file:
 
 ```bash
 cargo run -- transpile examples/demo.gp --out-dir .goplusgen --emit-source-map
@@ -1226,13 +1226,12 @@ match s {
 
 The current implementation is intentionally small. Important limitations:
 
-- Block comments are not supported by the lexer.
-- Parser coverage is not the full Go grammar.
-- `for` statements are emitted mostly as raw Go.
-- Many Go statements are supported only because they pass through as raw text.
+- Parser coverage is stabilized for v1.x syntax, with raw passthrough for
+  unsupported Go-like forms.
+- `for`, `switch`, and `select` statements are recognized and emitted as raw Go.
 - `goplus fmt --check` exists, but there is no rewriting GoPlus formatter yet.
-- `--emit-source-map` writes initial source map metadata, but rich span-to-span
-  mappings are not complete yet.
+- `--emit-source-map` writes readable JSON mappings for declarations,
+  functions, match arms, and statements.
 - `@derive` supports only `String`.
 - `@memoize` supports only top-level functions returning `T`.
 - Decorator signature compatibility is mostly enforced by generated Go and the

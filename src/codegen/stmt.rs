@@ -21,11 +21,19 @@ impl<'a> GoGenerator<'a> {
     ) -> String {
         match stmt {
             Stmt::VarDecl(var_decl) => self.emit_var_decl(var_decl, ret_type, indent),
+            Stmt::Assign(assign) => {
+                format!("{}{}\n", tabs(indent), self.transform_expr(&assign.text))
+            }
             Stmt::Return(ret_stmt) => self.emit_return(ret_stmt, ret_type, indent),
+            Stmt::Defer(raw)
+            | Stmt::Go(raw)
+            | Stmt::For(raw)
+            | Stmt::Switch(raw)
+            | Stmt::Select(raw)
+            | Stmt::Raw(raw) => format!("{}{}\n", tabs(indent), self.transform_expr(&raw.text)),
             Stmt::Expr(expr_stmt) => self.emit_expr_stmt(expr_stmt, ret_type, indent),
             Stmt::Match(match_stmt) => self.emit_match_stmt(match_stmt, ret_type, indent),
             Stmt::If(if_stmt) => self.emit_if_stmt(if_stmt, ret_type, indent),
-            Stmt::Raw(raw) => format!("{}{}\n", tabs(indent), self.transform_expr(&raw.text)),
         }
     }
 
@@ -107,8 +115,8 @@ impl<'a> GoGenerator<'a> {
         if ret_stmt.exprs.len() == 1 {
             let expr = rendered[0].clone();
             if is_error_ctor(&expr) {
-                self.imports.insert("errors".to_string());
-                let mapped = map_error_ctor(&expr);
+                let errors_name = self.import_binding("errors", "errors");
+                let mapped = map_error_ctor(&expr, &errors_name);
                 return match ret_type {
                     ReturnType::TypeWithError(ty) => {
                         format!(
@@ -430,7 +438,15 @@ impl<'a> GoGenerator<'a> {
     }
 
     pub(super) fn emit_try_helper(&self) -> String {
-        "func __goplusTry(values ...any) error {\n\tif len(values) == 0 {\n\t\treturn nil\n\t}\n\tlast := values[len(values)-1]\n\tif last == nil {\n\t\treturn nil\n\t}\n\tif err, ok := last.(error); ok {\n\t\treturn err\n\t}\n\treturn fmt.Errorf(\"try expression must end with error\")\n}"
-            .to_string()
+        let fmt_name = self
+            .imports
+            .get("fmt")
+            .and_then(|alias| alias.as_ref())
+            .filter(|alias| alias.as_str() != "_" && alias.as_str() != ".")
+            .cloned()
+            .unwrap_or_else(|| "fmt".to_string());
+        format!(
+            "func __goplusTry(values ...any) error {{\n\tif len(values) == 0 {{\n\t\treturn nil\n\t}}\n\tlast := values[len(values)-1]\n\tif last == nil {{\n\t\treturn nil\n\t}}\n\tif err, ok := last.(error); ok {{\n\t\treturn err\n\t}}\n\treturn {fmt_name}.Errorf(\"try expression must end with error\")\n}}"
+        )
     }
 }

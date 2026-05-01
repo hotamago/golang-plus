@@ -44,11 +44,20 @@ impl<'a> Parser<'a> {
                     }
                 }
                 self.parse_impl_block().map(Item::Impl)
+            } else if annotations.is_empty()
+                && (self.at(TokenKind::Const)
+                    || self.at(TokenKind::Var)
+                    || self.at(TokenKind::TypeKw))
+            {
+                self.parse_raw_decl().map(Item::Raw)
             } else {
-                self.diagnostics.push(Diagnostic::new(
-                    "expected top-level declaration",
-                    Some(self.current_span()),
-                ));
+                self.diagnostics.push(
+                    Diagnostic::new("expected top-level declaration", Some(self.current_span()))
+                        .with_code("E1000")
+                        .with_hint(
+                            "expected `fn`, `struct`, `enum`, `impl`, `const`, `var`, or `type`",
+                        ),
+                );
                 self.idx += 1;
                 None
             };
@@ -74,16 +83,19 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(super) fn parse_import_decl(&mut self) -> Vec<String> {
-        self.expect(TokenKind::Import, "expected `import`");
+    pub(super) fn parse_import_decl(&mut self) -> Vec<ImportDecl> {
+        let start = self
+            .expect_token(TokenKind::Import, "expected `import`")
+            .map(|token| token.span.start)
+            .unwrap_or_else(|| self.current_span().start);
         if self.consume(TokenKind::LParen) {
             let mut imports = Vec::new();
             self.skip_separators();
             while !self.at(TokenKind::RParen) && !self.is_eof() {
-                if let Some(token) =
-                    self.expect_token(TokenKind::StringLit, "expected import path string")
-                {
-                    imports.push(self.token_text(&token).trim_matches('"').to_string());
+                if let Some(import) = self.parse_import_spec() {
+                    imports.push(import);
+                } else {
+                    self.synchronize_block();
                 }
                 self.skip_separators();
                 self.consume(TokenKind::Semi);
@@ -93,9 +105,30 @@ impl<'a> Parser<'a> {
             return imports;
         }
 
-        self.expect_token(TokenKind::StringLit, "expected import path string")
-            .map(|token| vec![self.token_text(&token).trim_matches('"').to_string()])
+        self.parse_import_spec()
+            .map(|mut import| {
+                import.span = start..import.span.end;
+                vec![import]
+            })
             .unwrap_or_default()
+    }
+
+    fn parse_import_spec(&mut self) -> Option<ImportDecl> {
+        let start = self.current_span().start;
+        let alias = if self.at(TokenKind::Ident) && self.at_n(1, TokenKind::StringLit) {
+            Some(self.parse_ident("expected import alias")?)
+        } else if self.at(TokenKind::Dot) && self.at_n(1, TokenKind::StringLit) {
+            self.idx += 1;
+            Some(".".to_string())
+        } else {
+            None
+        };
+        let token = self.expect_token(TokenKind::StringLit, "expected import path string")?;
+        Some(ImportDecl {
+            alias,
+            path: self.token_text(&token).trim_matches('"').to_string(),
+            span: start..token.span.end,
+        })
     }
 
     pub(super) fn parse_annotations(&mut self) -> Vec<Decorator> {
@@ -152,5 +185,57 @@ impl<'a> Parser<'a> {
             name.push_str(&segment);
         }
         Some(name)
+    }
+
+    pub(super) fn parse_raw_decl(&mut self) -> Option<RawDecl> {
+        let start_idx = self.idx;
+        let mut i = self.idx;
+        let mut paren_depth = 0usize;
+        let mut bracket_depth = 0usize;
+        let mut brace_depth = 0usize;
+        let mut seen_block = false;
+
+        while i < self.tokens.len() {
+            match self.tokens[i].kind {
+                TokenKind::LParen => paren_depth += 1,
+                TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),
+                TokenKind::LBracket => bracket_depth += 1,
+                TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),
+                TokenKind::LBrace => {
+                    seen_block = true;
+                    brace_depth += 1;
+                }
+                TokenKind::RBrace => {
+                    if seen_block {
+                        brace_depth = brace_depth.saturating_sub(1);
+                        if brace_depth == 0 && paren_depth == 0 && bracket_depth == 0 {
+                            i += 1;
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                TokenKind::Newline | TokenKind::Semi
+                    if !seen_block && paren_depth == 0 && bracket_depth == 0 =>
+                {
+                    break;
+                }
+                _ => {}
+            }
+            i += 1;
+        }
+
+        if i == start_idx {
+            return None;
+        }
+        let span = self.range_span(start_idx, i)?;
+        let text = self.source[span.clone()].trim().to_string();
+        self.idx = i;
+        Some(RawDecl {
+            text,
+            source: None,
+            span,
+        })
     }
 }

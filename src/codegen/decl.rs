@@ -18,7 +18,7 @@ impl<'a> GoGenerator<'a> {
             .iter()
             .any(|derive| matches!(derive, DeriveKind::String))
         {
-            self.imports.insert("fmt".to_string());
+            self.import_binding("fmt", "fmt");
             out.push_str("\n\n");
             out.push_str(&self.emit_struct_string_impl(struct_decl));
         }
@@ -47,8 +47,15 @@ impl<'a> GoGenerator<'a> {
             .map(|field| format!("{receiver}.{}", field.name))
             .collect::<Vec<_>>()
             .join(", ");
+        let fmt_name = self
+            .imports
+            .get("fmt")
+            .and_then(|alias| alias.as_ref())
+            .filter(|alias| alias.as_str() != "_" && alias.as_str() != ".")
+            .cloned()
+            .unwrap_or_else(|| "fmt".to_string());
         format!(
-            "func ({receiver} {name}) String() string {{\n\treturn fmt.Sprintf(\"{name}{{{format_fields}}}\", {args})\n}}",
+            "func ({receiver} {name}) String() string {{\n\treturn {fmt_name}.Sprintf(\"{name}{{{format_fields}}}\", {args})\n}}",
             name = struct_decl.name
         )
     }

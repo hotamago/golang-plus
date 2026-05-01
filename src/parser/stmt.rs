@@ -40,10 +40,25 @@ impl<'a> Parser<'a> {
             return self.parse_if_stmt().map(Stmt::If);
         }
         if self.at(TokenKind::For) {
-            return self.parse_raw_stmt().map(Stmt::Raw);
+            return self.parse_raw_stmt().map(Stmt::For);
+        }
+        if self.at(TokenKind::Switch) {
+            return self.parse_raw_stmt().map(Stmt::Switch);
+        }
+        if self.at(TokenKind::Select) {
+            return self.parse_raw_stmt().map(Stmt::Select);
+        }
+        if self.at(TokenKind::Defer) {
+            return self.parse_raw_line_stmt().map(Stmt::Defer);
+        }
+        if self.at(TokenKind::Go) {
+            return self.parse_raw_line_stmt().map(Stmt::Go);
         }
         if self.at(TokenKind::Ident) && self.at_n(1, TokenKind::ColonEq) {
             return self.parse_var_decl_stmt().map(Stmt::VarDecl);
+        }
+        if self.at(TokenKind::Ident) && self.at_n(1, TokenKind::Eq) {
+            return self.parse_assign_stmt().map(Stmt::Assign);
         }
         self.parse_expr_stmt().map(Stmt::Expr)
     }
@@ -100,6 +115,14 @@ impl<'a> Parser<'a> {
         Some(ReturnStmt {
             exprs,
             span: start..end,
+        })
+    }
+
+    pub(super) fn parse_assign_stmt(&mut self) -> Option<AssignStmt> {
+        let raw = self.parse_raw_line_stmt()?;
+        Some(AssignStmt {
+            text: raw.text,
+            span: raw.span,
         })
     }
 
@@ -258,6 +281,11 @@ impl<'a> Parser<'a> {
         let span = self.range_span(start_idx, i)?;
         let text = self.source[span.clone()].trim().to_string();
         self.idx = i;
+        Some(RawStmt { text, span })
+    }
+
+    fn parse_raw_line_stmt(&mut self) -> Option<RawStmt> {
+        let (text, span, _) = self.parse_raw_text_to_line()?;
         Some(RawStmt { text, span })
     }
 }

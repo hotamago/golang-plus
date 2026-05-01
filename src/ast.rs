@@ -5,8 +5,15 @@ pub type Span = Range<usize>;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Program {
     pub package: String,
-    pub imports: Vec<String>,
+    pub imports: Vec<ImportDecl>,
     pub items: Vec<Item>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportDecl {
+    pub alias: Option<String>,
+    pub path: String,
     pub span: Span,
 }
 
@@ -16,6 +23,7 @@ pub enum Item {
     Enum(EnumDecl),
     Function(FnDecl),
     Impl(ImplBlock),
+    Raw(RawDecl),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -23,6 +31,7 @@ pub struct StructDecl {
     pub name: String,
     pub fields: Vec<FieldDecl>,
     pub derives: Vec<DeriveKind>,
+    pub source: Option<String>,
     pub span: Span,
 }
 
@@ -39,6 +48,7 @@ pub struct EnumDecl {
     pub type_params: Vec<String>,
     pub variants: Vec<EnumVariant>,
     pub derives: Vec<DeriveKind>,
+    pub source: Option<String>,
     pub span: Span,
 }
 
@@ -59,6 +69,7 @@ impl EnumDecl {
 pub struct ImplBlock {
     pub target: String,
     pub methods: Vec<MethodDecl>,
+    pub source: Option<String>,
     pub span: Span,
 }
 
@@ -70,6 +81,7 @@ pub struct FnDecl {
     pub ret: ReturnType,
     pub body: Block,
     pub decorators: Vec<Decorator>,
+    pub source: Option<String>,
     pub span: Span,
 }
 
@@ -134,10 +146,16 @@ pub struct Block {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Stmt {
     VarDecl(VarDeclStmt),
+    Assign(AssignStmt),
     Return(ReturnStmt),
+    Defer(RawStmt),
+    Go(RawStmt),
     Expr(ExprStmt),
     Match(MatchStmt),
     If(IfStmt),
+    For(RawStmt),
+    Switch(RawStmt),
+    Select(RawStmt),
     Raw(RawStmt),
 }
 
@@ -145,6 +163,12 @@ pub enum Stmt {
 pub struct VarDeclStmt {
     pub name: String,
     pub expr: Expr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AssignStmt {
+    pub text: String,
     pub span: Span,
 }
 
@@ -260,4 +284,11 @@ pub struct Decorator {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DeriveKind {
     String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RawDecl {
+    pub text: String,
+    pub source: Option<String>,
+    pub span: Span,
 }

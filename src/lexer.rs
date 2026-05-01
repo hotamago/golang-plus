@@ -32,6 +32,18 @@ pub enum TokenKind {
     Else,
     #[token("for")]
     For,
+    #[token("switch")]
+    Switch,
+    #[token("select")]
+    Select,
+    #[token("defer")]
+    Defer,
+    #[token("go")]
+    Go,
+    #[token("const")]
+    Const,
+    #[token("var")]
+    Var,
     #[token("mut")]
     Mut,
     #[token("self")]

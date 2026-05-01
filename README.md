@@ -62,8 +62,8 @@ New foundation hooks:
 - Human diagnostics now include diagnostic codes, source excerpts, caret spans,
   and hints when available.
 - `goplus check --diagnostic-format json` emits machine-readable diagnostics.
-- `goplus transpile --emit-source-map` writes an initial source map metadata
-  file beside generated Go.
+- `goplus transpile --emit-source-map` writes readable source map JSON beside
+  generated Go.
 - `goplus fmt --check` validates GoPlus source without rewriting it.
 
 ## Compiler Architecture
@@ -143,11 +143,11 @@ fn load(path: string) -> string! {
 See [ROADMAP.md](ROADMAP.md) for the detailed source of truth.
 
 Short status:
-- v1.x is **not complete**. The foundation is in place, but diagnostics,
-  source maps, parser coverage, fixture/golden tests, and performance work still
-  need completion.
+- v1.x stabilization is complete for the current syntax: diagnostics, source
+  maps, parser coverage, fixture tests, build checks, and performance baselines
+  are in place.
 - v2 is **not complete**. Only foundation hooks exist today, such as JSON
-  diagnostics, source map metadata, and `fmt --check`.
+  diagnostics, source map JSON, and `fmt --check`.
 
 ## Contributing
 

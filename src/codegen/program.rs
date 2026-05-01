@@ -8,30 +8,33 @@ impl<'a> GoGenerator<'a> {
                 Item::Enum(enum_decl) => self.emit_enum(enum_decl),
                 Item::Function(function) => self.emit_function(function),
                 Item::Impl(impl_block) => self.emit_impl_block(impl_block),
+                Item::Raw(raw) => raw.text.clone(),
             };
             self.sections.push(section);
         }
 
         if self.needs_try_helper {
-            self.imports.insert("fmt".to_string());
+            self.import_binding("fmt", "fmt");
             self.sections.push(self.emit_try_helper());
         }
 
         if self.needs_main_wrapper {
-            self.imports.insert("fmt".to_string());
-            self.imports.insert("os".to_string());
-            self.sections.push(
-                "func main() {\n\tif err := mainWarp(); err != nil {\n\t\tfmt.Fprintln(os.Stderr, err)\n\t\tos.Exit(1)\n\t}\n}"
-                    .to_string(),
-            );
+            let fmt_name = self.import_binding("fmt", "fmt");
+            let os_name = self.import_binding("os", "os");
+            self.sections.push(format!(
+                "func main() {{\n\tif err := mainWarp(); err != nil {{\n\t\t{fmt_name}.Fprintln({os_name}.Stderr, err)\n\t\t{os_name}.Exit(1)\n\t}}\n}}"
+            ));
         }
 
         let mut out = String::new();
         out.push_str(&format!("package {}\n\n", self.program.package));
         if !self.imports.is_empty() {
             out.push_str("import (\n");
-            for import in &self.imports {
-                out.push_str(&format!("\t\"{}\"\n", import));
+            for (path, alias) in &self.imports {
+                match alias {
+                    Some(alias) => out.push_str(&format!("\t{} \"{}\"\n", alias, path)),
+                    None => out.push_str(&format!("\t\"{}\"\n", path)),
+                }
             }
             out.push_str(")\n\n");
         }

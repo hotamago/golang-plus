@@ -115,3 +115,27 @@ fn add(a: int, b: int) -> int {
     assert!(go.contains("var add__decor0Cache"));
     assert!(go.contains("sync.Mutex"));
 }
+
+#[test]
+fn emits_go_generic_syntax_for_tagged_enums() {
+    let src = r#"
+package main
+
+enum Result<T> {
+    Ok(T)
+    Err(string)
+}
+
+fn load() -> Result<int> {
+    return Result<int>::Ok(1)
+}
+"#;
+    let mut program = parse_program(src).expect("parse ok");
+    let model = analyze(&mut program).expect("sema ok");
+    let go = generate_go(&program, &model);
+    assert!(go.contains("type Result[T any] struct"));
+    assert!(go.contains("func ResultOk[T any](v0 T) Result[T]"));
+    assert!(go.contains("return ResultOk[int](1)"));
+    assert!(!go.contains("ResultOk<int>"));
+    assert!(!go.contains("Result<int>"));
+}

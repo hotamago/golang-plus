@@ -40,7 +40,7 @@ pub fn build_model<'a>(programs: impl IntoIterator<Item = &'a Program>) -> Seman
                         );
                     }
                 }
-                Item::Struct(_) => {}
+                Item::Struct(_) | Item::Raw(_) => {}
             }
         }
     }
@@ -65,7 +65,7 @@ pub fn analyze_with_model(
                     analyze_method(method, &impl_block.target, &model.enums, &mut diagnostics);
                 }
             }
-            Item::Struct(_) | Item::Enum(_) => {}
+            Item::Struct(_) | Item::Enum(_) | Item::Raw(_) => {}
         }
     }
 
@@ -83,7 +83,7 @@ fn validate_declarations(program: &Program, diagnostics: &mut Vec<Diagnostic>) {
             Item::Struct(decl) => ("struct", &decl.name, decl.span.clone()),
             Item::Enum(decl) => ("enum", &decl.name, decl.span.clone()),
             Item::Function(decl) => ("function", &decl.name, decl.span.clone()),
-            Item::Impl(_) => continue,
+            Item::Impl(_) | Item::Raw(_) => continue,
         };
 
         if let Some(first_span) = names.insert(name.clone(), span.clone()) {
@@ -108,6 +108,47 @@ fn validate_declarations(program: &Program, diagnostics: &mut Vec<Diagnostic>) {
                 )
                 .with_code("E0101")
                 .with_hint("choose a name without GoPlus reserved generated suffixes"),
+            );
+        }
+
+        if let Item::Enum(enum_decl) = item {
+            validate_enum_generated_names(enum_decl, diagnostics);
+        }
+    }
+}
+
+fn validate_enum_generated_names(enum_decl: &EnumDecl, diagnostics: &mut Vec<Diagnostic>) {
+    let mut variants = HashMap::<String, Span>::new();
+    for variant in &enum_decl.variants {
+        if let Some(first_span) = variants.insert(variant.name.clone(), variant.span.clone()) {
+            diagnostics.push(
+                Diagnostic::new(
+                    format!("duplicate enum variant `{}`", variant.name),
+                    Some(variant.span.clone()),
+                )
+                .with_code("E0102")
+                .with_hint(format!(
+                    "the first variant starts at byte {}",
+                    first_span.start
+                )),
+            );
+        }
+
+        let generated_ctor = format!("{}{}", enum_decl.name, variant.name);
+        if generated_ctor == "mainWarp"
+            || generated_ctor.starts_with("__goplus")
+            || generated_ctor.contains("__decor")
+        {
+            diagnostics.push(
+                Diagnostic::new(
+                    format!(
+                        "enum variant `{}` creates generated symbol `{generated_ctor}` that collides with GoPlus internals",
+                        variant.name
+                    ),
+                    Some(variant.span.clone()),
+                )
+                .with_code("E0101")
+                .with_hint("rename the enum or variant to avoid reserved generated symbols"),
             );
         }
     }
@@ -173,6 +214,7 @@ pub(super) fn analyze_block(
                     vars.insert(var_decl.name.clone(), enum_name);
                 }
             }
+            Stmt::Assign(_) => {}
             Stmt::Return(ret) => {
                 for expr in &ret.exprs {
                     validate_try_usage(expr, ret_type, diagnostics);
@@ -217,7 +259,12 @@ pub(super) fn analyze_block(
                     }
                 }
             }
-            Stmt::Raw(_) => {}
+            Stmt::Defer(_)
+            | Stmt::Go(_)
+            | Stmt::For(_)
+            | Stmt::Switch(_)
+            | Stmt::Select(_)
+            | Stmt::Raw(_) => {}
         }
     }
 }

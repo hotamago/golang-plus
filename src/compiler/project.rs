@@ -109,6 +109,7 @@ pub(super) fn load_project_with_format(path: &Path, format: DiagnosticFormat) ->
                                     ),
                                     Some(0..0),
                                 )
+                                .with_code("E0400")
                                 .with_hint(
                                     "all `.gp` files in a package directory must use the same package name",
                                 ),
@@ -119,6 +120,8 @@ pub(super) fn load_project_with_format(path: &Path, format: DiagnosticFormat) ->
                     package_name = Some(program.package.clone());
                 }
 
+                let mut program = program;
+                annotate_program_sources(&mut program, &file_path);
                 units.push(SourceUnit {
                     path: file_path,
                     source,
@@ -166,6 +169,19 @@ pub(super) fn merge_programs<'a>(
         imports,
         items,
         span: 0..0,
+    }
+}
+
+fn annotate_program_sources(program: &mut Program, path: &Path) {
+    let source = Some(path.display().to_string());
+    for item in &mut program.items {
+        match item {
+            Item::Struct(decl) => decl.source = source.clone(),
+            Item::Enum(decl) => decl.source = source.clone(),
+            Item::Function(decl) => decl.source = source.clone(),
+            Item::Impl(decl) => decl.source = source.clone(),
+            Item::Raw(decl) => decl.source = source.clone(),
+        }
     }
 }
 

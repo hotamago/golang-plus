@@ -336,7 +336,86 @@ fn main() -> ! {
     let out_dir = dir.path().join(".goplusgen");
     let result = transpile_file_with_options(&src, &out_dir, true);
     assert!(result.is_ok());
-    assert!(out_dir.join("zz_goplus_gen.go.map").exists());
+    let map_path = out_dir.join("zz_goplus_gen.go.map");
+    assert!(map_path.exists());
+    let map = fs::read_to_string(map_path).expect("source map");
+    assert!(map.contains(r#""sources""#));
+    assert!(map.contains(r#""mappings""#));
+    assert!(map.contains(r#""kind": "function""#));
+    assert!(!map.contains(r#""mappings": []"#));
+}
+
+#[test]
+fn transpile_writes_package_cache_manifest() {
+    let dir = tempdir().expect("tempdir");
+    let src = dir.path().join("main.gp");
+    fs::write(
+        &src,
+        r#"
+package main
+
+fn main() -> ! {
+    return
+}
+"#,
+    )
+    .expect("write");
+    let out_dir = dir.path().join(".goplusgen");
+    assert!(transpile_file(&src, &out_dir).is_ok());
+    assert!(out_dir.join(".goplus-package-cache.json").exists());
+    assert!(transpile_file(&src, &out_dir).is_ok());
+}
+
+#[test]
+fn build_handles_import_alias_raw_decls_and_generic_tagged_enums() {
+    let dir = tempdir().expect("tempdir");
+    let src = dir.path().join("main.gp");
+    fs::write(
+        &src,
+        r#"
+package main
+
+import f "fmt"
+
+const banner = "value"
+type Label = string
+
+enum Result<T> {
+    Ok(T)
+    Err(string)
+}
+
+fn load() -> Result<int> {
+    return Result<int>::Ok(7)
+}
+
+fn main() -> ! {
+    result := load()
+    match result {
+        Ok(v) => {
+            f.Println(banner, Label("ok"), v)
+        },
+        Err(e) => {
+            f.Println(e)
+        },
+    }
+    return
+}
+"#,
+    )
+    .expect("write");
+    let out_dir = dir.path().join(".goplusgen");
+    let out_bin = dir.path().join(if cfg!(windows) {
+        "generic.exe"
+    } else {
+        "generic"
+    });
+    let result = build_file(&src, &out_dir, Some(&out_bin));
+    assert!(result.is_ok());
+    let generated = fs::read_to_string(out_dir.join(GENERATED_GO_FILE_NAME)).expect("generated");
+    assert!(generated.contains("f \"fmt\""));
+    assert!(generated.contains("type Result[T any] struct"));
+    assert!(generated.contains("ResultOk[int](7)"));
 }
 
 #[test]

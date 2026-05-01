@@ -7,28 +7,28 @@ impl<'a> GoGenerator<'a> {
         wrapper_name: &str,
         prev_name: &str,
     ) -> String {
-        self.imports.insert("fmt".to_string());
+        let fmt_name = self.import_binding("fmt", "fmt");
         let mut out = String::new();
         out.push_str(&render_signature(sig, wrapper_name));
         out.push_str(" {\n");
         out.push_str(&format!(
-            "\tfmt.Printf(\"[goplus] enter {}\\n\")\n",
-            sig.name
+            "\t{}.Printf(\"[goplus] enter {}\\n\")\n",
+            fmt_name, sig.name
         ));
         let call = call_expr(sig, prev_name);
         match &sig.ret {
             ReturnType::Void => {
                 out.push_str(&format!("\t{}\n", call));
                 out.push_str(&format!(
-                    "\tfmt.Printf(\"[goplus] exit {}\\n\")\n",
-                    sig.name
+                    "\t{}.Printf(\"[goplus] exit {}\\n\")\n",
+                    fmt_name, sig.name
                 ));
             }
             ReturnType::Type(_) => {
                 out.push_str(&format!("\tresult := {}\n", call));
                 out.push_str(&format!(
-                    "\tfmt.Printf(\"[goplus] exit {}\\n\")\n",
-                    sig.name
+                    "\t{}.Printf(\"[goplus] exit {}\\n\")\n",
+                    fmt_name, sig.name
                 ));
                 out.push_str("\treturn result\n");
             }
@@ -36,13 +36,13 @@ impl<'a> GoGenerator<'a> {
                 out.push_str(&format!("\terr := {}\n", call));
                 out.push_str("\tif err != nil {\n");
                 out.push_str(&format!(
-                    "\t\tfmt.Printf(\"[goplus] error {}: %v\\n\", err)\n",
-                    sig.name
+                    "\t\t{}.Printf(\"[goplus] error {}: %v\\n\", err)\n",
+                    fmt_name, sig.name
                 ));
                 out.push_str("\t\treturn err\n\t}\n");
                 out.push_str(&format!(
-                    "\tfmt.Printf(\"[goplus] exit {}\\n\")\n",
-                    sig.name
+                    "\t{}.Printf(\"[goplus] exit {}\\n\")\n",
+                    fmt_name, sig.name
                 ));
                 out.push_str("\treturn nil\n");
             }
@@ -50,13 +50,13 @@ impl<'a> GoGenerator<'a> {
                 out.push_str(&format!("\tresult, err := {}\n", call));
                 out.push_str("\tif err != nil {\n");
                 out.push_str(&format!(
-                    "\t\tfmt.Printf(\"[goplus] error {}: %v\\n\", err)\n",
-                    sig.name
+                    "\t\t{}.Printf(\"[goplus] error {}: %v\\n\", err)\n",
+                    fmt_name, sig.name
                 ));
                 out.push_str("\t\treturn result, err\n\t}\n");
                 out.push_str(&format!(
-                    "\tfmt.Printf(\"[goplus] exit {}\\n\")\n",
-                    sig.name
+                    "\t{}.Printf(\"[goplus] exit {}\\n\")\n",
+                    fmt_name, sig.name
                 ));
                 out.push_str("\treturn result, nil\n");
             }
@@ -82,9 +82,11 @@ impl<'a> GoGenerator<'a> {
             .get(1)
             .and_then(|arg| arg.trim().replace('_', "").parse::<usize>().ok())
             .unwrap_or(0);
-        if backoff > 0 {
-            self.imports.insert("time".to_string());
-        }
+        let time_name = if backoff > 0 {
+            self.import_binding("time", "time")
+        } else {
+            "time".to_string()
+        };
 
         let mut out = String::new();
         out.push_str(&render_signature(sig, wrapper_name));
@@ -102,8 +104,8 @@ impl<'a> GoGenerator<'a> {
                 out.push_str("\t\t\treturn nil\n\t\t} else {\n\t\t\tlastErr = err\n\t\t}\n");
                 if backoff > 0 {
                     out.push_str(&format!(
-                        "\t\ttime.Sleep(time.Duration({}) * time.Millisecond)\n",
-                        backoff
+                        "\t\t{}.Sleep({}.Duration({}) * {}.Millisecond)\n",
+                        time_name, time_name, backoff, time_name
                     ));
                 }
                 out.push_str("\t}\n\treturn lastErr\n");
@@ -119,8 +121,8 @@ impl<'a> GoGenerator<'a> {
                 out.push_str("\t\tlastErr = err\n");
                 if backoff > 0 {
                     out.push_str(&format!(
-                        "\t\ttime.Sleep(time.Duration({}) * time.Millisecond)\n",
-                        backoff
+                        "\t\t{}.Sleep({}.Duration({}) * {}.Millisecond)\n",
+                        time_name, time_name, backoff, time_name
                     ));
                 }
                 out.push_str("\t}\n");
@@ -146,7 +148,7 @@ impl<'a> GoGenerator<'a> {
         wrapper_name: &str,
         prev_name: &str,
     ) -> String {
-        self.imports.insert("sync".to_string());
+        let sync_name = self.import_binding("sync", "sync");
         let key_type = format!("{}Key", wrapper_name);
         let cache_name = format!("{}Cache", wrapper_name);
         let mu_name = format!("{}Mu", wrapper_name);
@@ -162,7 +164,7 @@ impl<'a> GoGenerator<'a> {
             out.push_str(&format!("\tP{} {}\n", idx, render_type_ref(&param.ty)));
         }
         out.push_str("}\n\n");
-        out.push_str(&format!("var {} sync.Mutex\n", mu_name));
+        out.push_str(&format!("var {} {}.Mutex\n", mu_name, sync_name));
         out.push_str(&format!(
             "var {} = map[{}]{}{{}}\n\n",
             cache_name, key_type, ret_ty

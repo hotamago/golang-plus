@@ -70,7 +70,7 @@ impl<'a> GoGenerator<'a> {
         out.push_str(&format!(
             "type {}{} struct {{\n",
             enum_decl.name,
-            render_type_params(&enum_decl.type_params)
+            render_type_params_with_any(&enum_decl.type_params)
         ));
         out.push_str(&format!("\ttag {}\n", tag_name));
         for variant in &enum_decl.variants {
@@ -116,7 +116,7 @@ impl<'a> GoGenerator<'a> {
             .iter()
             .any(|derive| matches!(derive, DeriveKind::String))
         {
-            self.imports.insert("fmt".to_string());
+            self.import_binding("fmt", "fmt");
             out.push_str(&self.emit_tagged_enum_string_impl(enum_decl));
         }
 
@@ -128,8 +128,15 @@ impl<'a> GoGenerator<'a> {
         out.push_str(&format!(
             "func (e {}{}) String() string {{\n",
             enum_decl.name,
-            render_type_params_with_any(&enum_decl.type_params)
+            render_type_params(&enum_decl.type_params)
         ));
+        let fmt_name = self
+            .imports
+            .get("fmt")
+            .and_then(|alias| alias.as_ref())
+            .filter(|alias| alias.as_str() != "_" && alias.as_str() != ".")
+            .cloned()
+            .unwrap_or_else(|| "fmt".to_string());
         out.push_str("\tswitch e.tag {\n");
         for variant in &enum_decl.variants {
             let tag = format!("{}Tag{}", enum_decl.name, variant.name);
@@ -153,8 +160,8 @@ impl<'a> GoGenerator<'a> {
                     .collect::<Vec<_>>()
                     .join(", ");
                 out.push_str(&format!(
-                    "\t\treturn fmt.Sprintf(\"{}({})\"{})\n",
-                    variant.name, placeholders, fmt_args
+                    "\t\treturn {}.Sprintf(\"{}({})\"{})\n",
+                    fmt_name, variant.name, placeholders, fmt_args
                 ));
             }
         }

@@ -13,10 +13,14 @@ pub(super) fn validate_decorators(
             "log" => {}
             "retry" => {
                 if !ret_type.is_error_capable() {
-                    diagnostics.push(Diagnostic::new(
-                        "`@retry` requires function returning `!` or `T!`",
-                        Some(decorator.span.clone()),
-                    ));
+                    diagnostics.push(
+                        Diagnostic::new(
+                            "`@retry` requires function returning `!` or `T!`",
+                            Some(decorator.span.clone()),
+                        )
+                        .with_code("E0303")
+                        .with_hint("change the return type to `!` or `T!`, or remove `@retry`"),
+                    );
                 }
                 if decorator.args.is_empty() || decorator.args.len() > 2 {
                     diagnostics.push(
@@ -24,30 +28,43 @@ pub(super) fn validate_decorators(
                             "`@retry` expects `@retry(times)` or `@retry(times, backoff_ms)`",
                             Some(decorator.span.clone()),
                         )
+                        .with_code("E0304")
                         .with_hint("example: @retry(3, 100)"),
                     );
                 }
                 for arg in &decorator.args {
                     if parse_positive_int(arg).is_none() {
-                        diagnostics.push(Diagnostic::new(
-                            format!("`@retry` argument `{arg}` must be a positive integer"),
-                            Some(decorator.span.clone()),
-                        ));
+                        diagnostics.push(
+                            Diagnostic::new(
+                                format!("`@retry` argument `{arg}` must be a positive integer"),
+                                Some(decorator.span.clone()),
+                            )
+                            .with_code("E0305")
+                            .with_hint("use a positive integer literal such as `3`"),
+                        );
                     }
                 }
             }
             "memoize" => {
                 if is_method {
-                    diagnostics.push(Diagnostic::new(
-                        "`@memoize` is allowed only on top-level functions",
-                        Some(decorator.span.clone()),
-                    ));
+                    diagnostics.push(
+                        Diagnostic::new(
+                            "`@memoize` is allowed only on top-level functions",
+                            Some(decorator.span.clone()),
+                        )
+                        .with_code("E0306")
+                        .with_hint("move the function out of `impl` or remove `@memoize`"),
+                    );
                 }
                 if !matches!(ret_type, ReturnType::Type(_)) {
-                    diagnostics.push(Diagnostic::new(
-                        "`@memoize` requires non-error return type `T`",
-                        Some(decorator.span.clone()),
-                    ));
+                    diagnostics.push(
+                        Diagnostic::new(
+                            "`@memoize` requires non-error return type `T`",
+                            Some(decorator.span.clone()),
+                        )
+                        .with_code("E0307")
+                        .with_hint("use a single non-error return value"),
+                    );
                 }
                 for param in params {
                     if !is_comparable_type(&param.ty.raw) {
@@ -59,6 +76,7 @@ pub(super) fn validate_decorators(
                                 ),
                                 Some(param.span.clone()),
                             )
+                            .with_code("E0308")
                             .with_hint("use scalar/pointer/named comparable types only"),
                         );
                     }

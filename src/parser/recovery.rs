@@ -77,8 +77,11 @@ impl<'a> Parser<'a> {
         if self.consume(kind) {
             true
         } else {
-            self.diagnostics
-                .push(Diagnostic::new(message, Some(self.current_span())));
+            self.diagnostics.push(
+                Diagnostic::new(message, Some(self.current_span()))
+                    .with_code("E1001")
+                    .with_hint("check the surrounding syntax and delimiter balance"),
+            );
             false
         }
     }
@@ -89,8 +92,11 @@ impl<'a> Parser<'a> {
             self.idx += 1;
             Some(token)
         } else {
-            self.diagnostics
-                .push(Diagnostic::new(message, Some(self.current_span())));
+            self.diagnostics.push(
+                Diagnostic::new(message, Some(self.current_span()))
+                    .with_code("E1001")
+                    .with_hint("check the surrounding syntax and delimiter balance"),
+            );
             None
         }
     }

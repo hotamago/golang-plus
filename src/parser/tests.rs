@@ -95,7 +95,34 @@ fn main() -> ! {
 }
 "#;
     let program = parse_program(src).expect("parse should succeed");
-    assert_eq!(program.imports, vec!["fmt", "os"]);
+    let imports = program
+        .imports
+        .iter()
+        .map(|import| import.path.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(imports, vec!["fmt", "os"]);
+}
+
+#[test]
+fn parse_import_aliases_and_raw_decls() {
+    let src = r#"
+package main
+
+import (
+    f "fmt"
+    _ "embed"
+    . "strings"
+)
+
+const answer = 42
+var counter int
+type Alias = string
+"#;
+    let program = parse_program(src).expect("parse should succeed");
+    assert_eq!(program.imports[0].alias.as_deref(), Some("f"));
+    assert_eq!(program.imports[1].alias.as_deref(), Some("_"));
+    assert_eq!(program.imports[2].alias.as_deref(), Some("."));
+    assert_eq!(program.items.len(), 3);
 }
 
 #[test]
@@ -119,4 +146,8 @@ fn main() {
         _ => panic!("expected function"),
     };
     assert_eq!(fn_decl.body.stmts.len(), 5);
+    assert!(matches!(fn_decl.body.stmts[0], Stmt::Defer(_)));
+    assert!(matches!(fn_decl.body.stmts[1], Stmt::Go(_)));
+    assert!(matches!(fn_decl.body.stmts[2], Stmt::Assign(_)));
+    assert!(matches!(fn_decl.body.stmts[4], Stmt::For(_)));
 }

@@ -225,9 +225,10 @@ pub(super) fn collect_local_gp_import_dirs(
         .iter()
         .flat_map(|unit| unit.program.imports.iter())
     {
-        let rel_path = if import == module_name {
+        let import_path = import.path.as_str();
+        let rel_path = if import_path == module_name {
             PathBuf::new()
-        } else if let Some(suffix) = import.strip_prefix(&format!("{module_name}/")) {
+        } else if let Some(suffix) = import_path.strip_prefix(&format!("{module_name}/")) {
             let mut rel = PathBuf::new();
             for segment in suffix.split('/') {
                 rel.push(segment);
