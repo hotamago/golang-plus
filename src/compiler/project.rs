@@ -83,6 +83,10 @@ pub(super) fn load_project_with_format(path: &Path, format: DiagnosticFormat) ->
     gp_files.sort();
     go_files.sort();
 
+    if metadata.is_file() && module_root.is_none() && has_multiple_executable_entries(&gp_files)? {
+        gp_files = vec![source_path.clone()];
+    }
+
     if gp_files.is_empty() {
         bail!("no `.gp` files found in {}", source_dir.display());
     }
@@ -183,6 +187,31 @@ fn annotate_program_sources(program: &mut Program, path: &Path) {
             Item::Raw(decl) => decl.source = source.clone(),
         }
     }
+}
+
+fn has_multiple_executable_entries(paths: &[PathBuf]) -> Result<bool> {
+    let mut count = 0;
+    for path in paths {
+        let source = fs::read_to_string(path)
+            .with_context(|| format!("failed to read source file {}", path.display()))?;
+        if declares_main_package(&source) && declares_main_function(&source) {
+            count += 1;
+            if count > 1 {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
+}
+
+fn declares_main_package(source: &str) -> bool {
+    source.lines().any(|line| line.trim() == "package main")
+}
+
+fn declares_main_function(source: &str) -> bool {
+    source
+        .lines()
+        .any(|line| line.trim_start().starts_with("fn main("))
 }
 
 pub(super) fn canonicalize_existing(path: &Path) -> Result<PathBuf> {

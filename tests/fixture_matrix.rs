@@ -4,7 +4,7 @@ use goplus::{
     ast::{Item, Stmt},
     codegen::generate_go,
     compiler::{
-        DiagnosticFormat, build_file, check_file_with_format, transpile_file,
+        DiagnosticFormat, build_file, check_file_with_format, run_file, transpile_file,
         transpile_file_with_options,
     },
     parser::parse_program,
@@ -96,6 +96,16 @@ fn build_fixture_compiles_aliases_raw_decls_and_generic_tagged_enums() {
     let generated = fs::read_to_string(out_dir.path().join("zz_goplus_gen.go")).expect("generated");
     assert!(generated.contains("f \"fmt\""));
     assert!(generated.contains("ResultOk[int](7)"));
+}
+
+#[test]
+fn direct_top_level_example_run_does_not_merge_sibling_demos() {
+    let out_dir = tempdir().expect("out");
+    let example = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("examples")
+        .join("concurrency_select.gp");
+
+    run_file(&example, out_dir.path()).expect("run selected example");
 }
 
 fn normalize_newlines(input: &str) -> String {

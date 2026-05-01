@@ -59,7 +59,8 @@ Implemented today:
 - Built-in decorators: `@log`, `@retry(times[, backoff_ms])`, `@memoize`.
 - Custom decorators using decorator factory functions.
 - Package compilation:
-  - A `.gp` file compiles all sibling `.gp` files in the same directory.
+  - A standalone `.gp` file outside a Go module compiles as the selected file.
+  - Directories and Go module packages compile sibling `.gp` files together.
   - Sibling `.go` files can be copied into the generated package.
   - Go modules are mirrored into the output directory when a `go.mod` is found.
 
@@ -185,9 +186,10 @@ cargo run -- fmt examples/demo.gp --check
 
 GoPlus source files use the `.gp` extension.
 
-When you pass a `.gp` file to the compiler, GoPlus treats that file as an entry
-point into its containing package directory. It compiles every sibling `.gp`
-file in that same directory as one Go package.
+When you pass a standalone `.gp` file outside a Go module, GoPlus compiles that
+selected file. When you pass a directory, or a file inside a Go module package,
+GoPlus treats it as an entry point into its containing package directory and
+compiles sibling `.gp` files in that same directory as one Go package.
 
 For example:
 

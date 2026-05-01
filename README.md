@@ -38,8 +38,8 @@ Long-term vision:
 - `match` with enum exhaustive checking.
 - `@derive(String)` for struct/enum.
 - Package compilation:
-  - Passing a `.gp` file compiles the whole package directory, not just that file.
-  - Sibling `.gp` files are merged at module/package level.
+  - Standalone `.gp` files outside a Go module compile as the selected file.
+  - Directories and Go module packages compile all sibling `.gp` files together.
   - Sibling `.go` files are copied into the generated package so Go and GoPlus code can link together.
 - Compile-time decorators:
   - Built-in: `@log`, `@retry(times[, backoff_ms])`, `@memoize`.
@@ -80,8 +80,8 @@ cargo run -- transpile examples/demo.gp --out-dir .goplusgen
 cargo run -- run examples/demo.gp --out-dir .goplusgen
 ```
 
-`goplus` treats the provided `.gp` path as the entry into its containing package directory.
-If you point it at a directory instead, it will compile every `*.gp` file in that directory and link any sibling `*.go` files in the same package.
+`goplus` runs a standalone `.gp` path outside a Go module as the selected file.
+If you point it at a directory, or at a file inside a Go module package, it will compile every `*.gp` file in that package and link any sibling `*.go` files.
 
 Mixed-source example:
 

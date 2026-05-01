@@ -56,33 +56,15 @@ jobs:
           fi
         }
 
-        run_single_file_example() {
-          local file="$1"
-          local stdin="${2-}"
-          local name
-          local workdir
-          name="$(basename "$file" .gp)"
-          workdir=".goplus-ci/examples/$name"
-
-          rm -rf "$workdir"
-          mkdir -p "$workdir"
-          cp "$file" "$workdir/main.gp"
-          if [[ $# -gt 1 ]]; then
-            run_example "$workdir/main.gp" "$stdin"
-          else
-            run_example "$workdir/main.gp"
-          fi
-        }
-
         while IFS= read -r -d '' file; do
           if grep -Eq '^[[:space:]]*package[[:space:]]+main[[:space:]]*$' "$file" \
             && grep -Eq '^[[:space:]]*fn[[:space:]]+main[[:space:]]*\(' "$file"; then
             case "$(basename "$file")" in
               beautiful_numbers.gp)
-                run_single_file_example "$file" $'3\n1\n19\n123\n'
+                run_example "$file" $'3\n1\n19\n123\n'
                 ;;
               *)
-                run_single_file_example "$file"
+                run_example "$file"
                 ;;
             esac
           fi
