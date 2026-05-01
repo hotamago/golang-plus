@@ -5,6 +5,7 @@ use crate::diag::Diagnostic;
 #[derive(Logos, Debug, Clone, Copy, PartialEq, Eq)]
 #[logos(skip r"[ \t\r\f]+")]
 #[logos(skip r"//[^\n]*")]
+#[logos(skip r"/\*([^*]|\*[^/])*\*/")]
 pub enum TokenKind {
     #[token("\n")]
     Newline,

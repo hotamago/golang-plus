@@ -126,6 +126,12 @@ cargo run -- check examples/demo.gp
 consistency, decorator constraints, valid `?` usage, and enum match
 exhaustiveness.
 
+Diagnostics can also be emitted as JSON:
+
+```bash
+cargo run -- check examples/demo.gp --diagnostic-format json
+```
+
 ### `transpile`
 
 Transpiles GoPlus to Go and writes generated files to an output directory.
@@ -135,6 +141,12 @@ cargo run -- transpile examples/demo.gp --out-dir .goplusgen
 ```
 
 The default output directory is `.goplusgen`.
+
+To write initial source map metadata beside the generated Go file:
+
+```bash
+cargo run -- transpile examples/demo.gp --out-dir .goplusgen --emit-source-map
+```
 
 ### `build`
 
@@ -158,6 +170,15 @@ Transpiles the package and then runs it with `go run`.
 
 ```bash
 cargo run -- run examples/demo.gp --out-dir .goplusgen
+```
+
+### `fmt`
+
+The formatter command is currently a validation hook. It parses and checks
+GoPlus source without rewriting files:
+
+```bash
+cargo run -- fmt examples/demo.gp --check
 ```
 
 ## Source Files and Packages
@@ -1167,8 +1188,10 @@ These live inside the generated package directory.
 
 ## Diagnostics
 
-GoPlus reports diagnostics for syntax and semantic errors with file context and
-source spans when available.
+GoPlus reports diagnostics for syntax and semantic errors with diagnostic codes,
+file context, source excerpts, caret spans, and hints when available. Use
+`--diagnostic-format json` on `check` when editor or tooling integrations need a
+machine-readable result.
 
 Examples of checked errors:
 
@@ -1207,8 +1230,9 @@ The current implementation is intentionally small. Important limitations:
 - Parser coverage is not the full Go grammar.
 - `for` statements are emitted mostly as raw Go.
 - Many Go statements are supported only because they pass through as raw text.
-- There is no dedicated GoPlus formatter.
-- There is no source map between `.gp` and generated `.go`.
+- `goplus fmt --check` exists, but there is no rewriting GoPlus formatter yet.
+- `--emit-source-map` writes initial source map metadata, but rich span-to-span
+  mappings are not complete yet.
 - `@derive` supports only `String`.
 - `@memoize` supports only top-level functions returning `T`.
 - Decorator signature compatibility is mostly enforced by generated Go and the

@@ -49,6 +49,22 @@ Long-term vision:
   - `goplus transpile`
   - `goplus build`
   - `goplus run`
+  - `goplus fmt --check`
+
+## v2 Foundation Work
+
+The compiler is now organized into scalable frontend, semantic, codegen, and
+project orchestration submodules under `src/parser`, `src/sema`, `src/codegen`,
+and `src/compiler`. No core module is intended to grow into a thousand-line
+catch-all file again.
+
+New foundation hooks:
+- Human diagnostics now include diagnostic codes, source excerpts, caret spans,
+  and hints when available.
+- `goplus check --diagnostic-format json` emits machine-readable diagnostics.
+- `goplus transpile --emit-source-map` writes an initial source map metadata
+  file beside generated Go.
+- `goplus fmt --check` validates GoPlus source without rewriting it.
 
 ## Compiler Architecture
 
