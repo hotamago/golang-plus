@@ -30,10 +30,66 @@ jobs:
     - name: Compile benchmarks
       run: cargo bench --no-run
     - name: Check all example sources
+      shell: bash
       run: |
+        set -euo pipefail
+
         while IFS= read -r -d '' file; do
+          echo "Checking $file"
           cargo run -- check "$file"
         done < <(find examples -name '*.gp' -not -path '*/.goplusgen/*' -print0)
+    - name: Run executable examples
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        run_example() {
+          local file="$1"
+          local stdin="${2-}"
+
+          echo "Running $file"
+          rm -rf .goplusgen
+          if [[ $# -gt 1 ]]; then
+            printf '%b' "$stdin" | timeout 30s cargo run -- run "$file" --out-dir .goplusgen
+          else
+            timeout 30s cargo run -- run "$file" --out-dir .goplusgen < /dev/null
+          fi
+        }
+
+        run_single_file_example() {
+          local file="$1"
+          local stdin="${2-}"
+          local name
+          local workdir
+          name="$(basename "$file" .gp)"
+          workdir=".goplus-ci/examples/$name"
+
+          rm -rf "$workdir"
+          mkdir -p "$workdir"
+          cp "$file" "$workdir/main.gp"
+          if [[ $# -gt 1 ]]; then
+            run_example "$workdir/main.gp" "$stdin"
+          else
+            run_example "$workdir/main.gp"
+          fi
+        }
+
+        while IFS= read -r -d '' file; do
+          if grep -Eq '^[[:space:]]*package[[:space:]]+main[[:space:]]*$' "$file" \
+            && grep -Eq '^[[:space:]]*fn[[:space:]]+main[[:space:]]*\(' "$file"; then
+            case "$(basename "$file")" in
+              beautiful_numbers.gp)
+                run_single_file_example "$file" $'3\n1\n19\n123\n'
+                ;;
+              *)
+                run_single_file_example "$file"
+                ;;
+            esac
+          fi
+        done < <(find examples -maxdepth 1 -name '*.gp' -print0)
+
+        run_example examples/link-source/main.gp
+        run_example examples/complex-app/main.gp
     - name: Build example packages
       run: |
         cargo run -- build examples/link-source/main.gp --out-dir .goplusgen --out ./goplus-link-source
