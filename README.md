@@ -140,18 +140,14 @@ fn load(path: string) -> string! {
 
 ## Roadmap
 
-### Near-term (v1.x)
+See [ROADMAP.md](ROADMAP.md) for the detailed source of truth.
 
-- Improve diagnostics quality (error spans, better suggestions).
-- Expand parser coverage for practical Go-like syntax.
-- Increase test matrix for decorator chains, tagged enum edge cases, and interop.
-- Improve transpile performance for larger projects.
-
-### Mid-term (v2)
-
-- Tooling support: formatter/lint for goplus source.
-- Better IDE/devex (source mapping and navigation between `.gp` and generated `.go`).
-- Richer derive set and stronger decorator signature validation.
+Short status:
+- v1.x is **not complete**. The foundation is in place, but diagnostics,
+  source maps, parser coverage, fixture/golden tests, and performance work still
+  need completion.
+- v2 is **not complete**. Only foundation hooks exist today, such as JSON
+  diagnostics, source map metadata, and `fmt --check`.
 
 ## Contributing
 
@@ -161,10 +157,10 @@ Quick start:
 - Run tests: `cargo test`
 - Run example: `cargo run -- run examples/demo.gp --out-dir .goplusgen`
 - Start reading core modules:
-  - `src/parser.rs`
-  - `src/sema.rs`
-  - `src/codegen.rs`
-  - `src/compiler.rs`
+  - `src/parser/`
+  - `src/sema/`
+  - `src/codegen/`
+  - `src/compiler/`
 
 Areas where contributions are especially useful:
 - Parser and grammar improvements.

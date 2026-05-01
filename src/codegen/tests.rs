@@ -25,6 +25,22 @@ fn load(path: string) -> string! {
 }
 
 #[test]
+fn retry_without_backoff_does_not_import_time() {
+    let src = r#"
+package main
+
+@retry(3)
+fn load() -> string! {
+    return "ok"
+}
+"#;
+    let mut program = parse_program(src).expect("parse ok");
+    let model = analyze(&mut program).expect("sema ok");
+    let go = generate_go(&program, &model);
+    assert!(!go.contains("\"time\""));
+}
+
+#[test]
 fn generates_custom_decorator_wrapper() {
     let src = r#"
 package main

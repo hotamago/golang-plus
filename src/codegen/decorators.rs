@@ -72,7 +72,6 @@ impl<'a> GoGenerator<'a> {
         prev_name: &str,
         decorator: &Decorator,
     ) -> String {
-        self.imports.insert("time".to_string());
         let times = decorator
             .args
             .first()
@@ -83,6 +82,9 @@ impl<'a> GoGenerator<'a> {
             .get(1)
             .and_then(|arg| arg.trim().replace('_', "").parse::<usize>().ok())
             .unwrap_or(0);
+        if backoff > 0 {
+            self.imports.insert("time".to_string());
+        }
 
         let mut out = String::new();
         out.push_str(&render_signature(sig, wrapper_name));

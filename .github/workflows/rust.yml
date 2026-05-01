@@ -27,9 +27,12 @@ jobs:
       run: cargo build --verbose
     - name: Run tests
       run: cargo test --verbose
-    - name: Check examples
+    - name: Check all example sources
       run: |
-        cargo run -- check examples/demo.gp
-        cargo run -- check examples/link-source/main.gp
-    - name: Build mixed-source example
-      run: cargo run -- build examples/link-source/main.gp --out-dir .goplusgen --out ./goplus-link-source
+        while IFS= read -r -d '' file; do
+          cargo run -- check "$file"
+        done < <(find examples -name '*.gp' -not -path '*/.goplusgen/*' -print0)
+    - name: Build example packages
+      run: |
+        cargo run -- build examples/link-source/main.gp --out-dir .goplusgen --out ./goplus-link-source
+        cargo run -- build examples/complex-app/main.gp --out-dir .goplusgen --out ./goplus-complex-app
