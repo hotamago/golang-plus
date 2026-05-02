@@ -1,11 +1,10 @@
 import * as vscode from 'vscode';
 import { runAllDiagnostics, runCheck, runLint } from './diagnostics';
 import { GoplusFormattingProvider } from './formatter';
-import { GpToGoDefinitionProvider, GoToGpDefinitionProvider } from './navigation';
+import { navigateToGo, navigateToGp, GoplusDefinitionProvider } from './navigation';
 import { GoplusHoverProvider } from './hover';
 
 const GP_SELECTOR: vscode.DocumentSelector = { language: 'goplus', scheme: 'file' };
-const GO_SELECTOR: vscode.DocumentSelector = { language: 'go', scheme: 'file' };
 
 let diagnosticCollection: vscode.DiagnosticCollection;
 
@@ -59,19 +58,11 @@ export function activate(context: vscode.ExtensionContext): void {
     );
 
     // --- Navigation providers ---
-    // .gp -> .go (Go to Definition navigates to generated Go)
+    // Standard Go to Definition for .gp files -> jumps to .gp definition
     context.subscriptions.push(
         vscode.languages.registerDefinitionProvider(
             GP_SELECTOR,
-            new GpToGoDefinitionProvider()
-        )
-    );
-
-    // .go -> .gp (Go to Definition navigates back to GoPlus source from generated Go)
-    context.subscriptions.push(
-        vscode.languages.registerDefinitionProvider(
-            GO_SELECTOR,
-            new GoToGpDefinitionProvider()
+            new GoplusDefinitionProvider()
         )
     );
 
@@ -132,7 +123,13 @@ export function activate(context: vscode.ExtensionContext): void {
                 vscode.window.showWarningMessage('Open a .gp file to navigate to generated Go.');
                 return;
             }
-            await vscode.commands.executeCommand('editor.action.revealDefinition');
+            const loc = await navigateToGo(editor.document, editor.selection.active);
+            if (loc) {
+                const doc = await vscode.workspace.openTextDocument(loc.uri);
+                await vscode.window.showTextDocument(doc, { selection: loc.range });
+            } else {
+                vscode.window.showWarningMessage('Could not find corresponding Go code.');
+            }
         })
     );
 
@@ -143,7 +140,13 @@ export function activate(context: vscode.ExtensionContext): void {
                 vscode.window.showWarningMessage('Open a generated Go file to navigate back to GoPlus source.');
                 return;
             }
-            await vscode.commands.executeCommand('editor.action.revealDefinition');
+            const loc = await navigateToGp(editor.document, editor.selection.active);
+            if (loc) {
+                const doc = await vscode.workspace.openTextDocument(loc.uri);
+                await vscode.window.showTextDocument(doc, { selection: loc.range });
+            } else {
+                vscode.window.showWarningMessage('Could not find corresponding GoPlus code.');
+            }
         })
     );
 }

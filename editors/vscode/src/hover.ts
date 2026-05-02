@@ -37,11 +37,63 @@ const DERIVE_KIND_DOCS: Record<string, string> = {
 };
 
 export class GoplusHoverProvider implements vscode.HoverProvider {
-    provideHover(
+    private async findDefinitionAndHover(word: string): Promise<vscode.Hover | undefined> {
+        // Simple regex search across workspace .gp files
+        const uris = await vscode.workspace.findFiles('**/*.gp', '**/node_modules/**');
+        const docs = new Set(vscode.workspace.textDocuments.filter(d => d.languageId === 'goplus'));
+        for (const uri of uris) {
+            const openDoc = vscode.workspace.textDocuments.find(d => d.uri.fsPath === uri.fsPath);
+            if (!openDoc) {
+                try {
+                    const doc = await vscode.workspace.openTextDocument(uri);
+                    docs.add(doc);
+                } catch {
+                    // Ignore errors opening files
+                }
+            }
+        }
+
+        const pattern = new RegExp(`^\\s*(?:fn(?:\\s+mut)?|struct|enum|type|const|var)\\s+${word}\\b`);
+        const methodPattern = new RegExp(`^\\s*fn(?:\\s+mut)?\\s+${word}\\b`);
+
+        for (const doc of docs) {
+            for (let i = 0; i < doc.lineCount; i++) {
+                const text = doc.lineAt(i).text;
+                if (pattern.test(text) || methodPattern.test(text)) {
+                    // Found a definition! Extract the signature
+                    const signature = text.trim().replace(/ \{$/, '');
+                    
+                    // Look for preceding comments
+                    const comments: string[] = [];
+                    let j = i - 1;
+                    while (j >= 0) {
+                        const prevLine = doc.lineAt(j).text.trim();
+                        if (prevLine.startsWith('//')) {
+                            comments.unshift(prevLine.substring(2).trim());
+                            j--;
+                        } else {
+                            break;
+                        }
+                    }
+
+                    const md = new vscode.MarkdownString();
+                    md.appendCodeblock(signature, 'gp');
+                    if (comments.length > 0) {
+                        md.appendMarkdown('\n---\n' + comments.join('  \n'));
+                    }
+                    return new vscode.Hover(md);
+                }
+            }
+        }
+
+        return undefined;
+    }
+
+    async provideHover(
         document: vscode.TextDocument,
         position: vscode.Position,
         _token: vscode.CancellationToken
-    ): vscode.ProviderResult<vscode.Hover> {
+    ): Promise<vscode.Hover | undefined> {
         const lineText = document.lineAt(position.line).text;
         const wordRange = document.getWordRangeAtPosition(position, /[@a-zA-Z_!?:][a-zA-Z0-9_]*/);
         if (!wordRange) {
@@ -154,6 +206,11 @@ export class GoplusHoverProvider implements vscode.HoverProvider {
             md.appendMarkdown('Groups methods for a struct or enum type.\n\n');
             md.appendMarkdown('```gp\nimpl User {\n    fn Greet(self) -> string {\n        return "Hi, " + self.Name\n    }\n}\n```');
             return new vscode.Hover(md);
+        }
+
+        // Fallback: search for definition to show signature and comment
+        if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(word)) {
+            return await this.findDefinitionAndHover(word);
         }
 
         return undefined;

@@ -23,7 +23,6 @@ fn render(result: Result<string>) -> string {
         Err(reason) => "error:" + reason,
     }
 }
-
 fn main() -> ! {
     fmt.Println(render(loadName(true)))
     fmt.Println(render(loadName(false)))

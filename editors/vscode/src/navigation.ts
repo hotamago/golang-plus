@@ -137,101 +137,137 @@ function parseLocationOutput(output: string): { file: string; line: number; colu
     return { file, line, column };
 }
 
-/**
- * DefinitionProvider for .gp files: navigates to the generated .go location.
- */
-export class GpToGoDefinitionProvider implements vscode.DefinitionProvider {
-    async provideDefinition(
-        document: vscode.TextDocument,
-        position: vscode.Position,
-        _token: vscode.CancellationToken
-    ): Promise<vscode.Definition | undefined> {
-        const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
-        if (!workspaceFolder) {
+export async function navigateToGo(
+    document: vscode.TextDocument,
+    position: vscode.Position
+): Promise<vscode.Location | undefined> {
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
+    if (!workspaceFolder) {
+        return undefined;
+    }
+
+    const gpFilePath = document.uri.fsPath;
+    const mapPath = findSourceMapForGpFile(workspaceFolder.uri.fsPath, gpFilePath);
+    if (!mapPath) {
+        return undefined;
+    }
+
+    try {
+        const output = await execNavigate(
+            [
+                'navigate',
+                '--source-map', mapPath,
+                '--file', gpFilePath,
+                '--line', String(position.line + 1),
+                '--column', String(position.character + 1),
+            ],
+            workspaceFolder.uri.fsPath
+        );
+
+        const loc = parseLocationOutput(output);
+        if (!loc) {
             return undefined;
         }
 
-        const gpFilePath = document.uri.fsPath;
-        const mapPath = findSourceMapForGpFile(workspaceFolder.uri.fsPath, gpFilePath);
-        if (!mapPath) {
-            return undefined;
-        }
-
-        try {
-            const output = await execNavigate(
-                [
-                    'navigate',
-                    '--source-map', mapPath,
-                    '--file', gpFilePath,
-                    '--line', String(position.line + 1),
-                    '--column', String(position.character + 1),
-                ],
-                workspaceFolder.uri.fsPath
-            );
-
-            const loc = parseLocationOutput(output);
-            if (!loc) {
-                return undefined;
-            }
-
-            return new vscode.Location(
-                vscode.Uri.file(loc.file),
-                new vscode.Position(loc.line - 1, loc.column - 1)
-            );
-        } catch {
-            return undefined;
-        }
+        return new vscode.Location(
+            vscode.Uri.file(loc.file),
+            new vscode.Position(loc.line - 1, loc.column - 1)
+        );
+    } catch {
+        return undefined;
     }
 }
 
-/**
- * DefinitionProvider for generated .go files: navigates back to the .gp source.
- */
-export class GoToGpDefinitionProvider implements vscode.DefinitionProvider {
+export async function navigateToGp(
+    document: vscode.TextDocument,
+    position: vscode.Position
+): Promise<vscode.Location | undefined> {
+    const goFilePath = document.uri.fsPath;
+
+    if (!path.basename(goFilePath).startsWith('zz_goplus_gen')) {
+        return undefined;
+    }
+
+    const mapPath = findSourceMapForGoFile(goFilePath);
+    if (!mapPath) {
+        return undefined;
+    }
+
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
+    const cwd = workspaceFolder?.uri.fsPath || path.dirname(goFilePath);
+
+    try {
+        const output = await execNavigate(
+            [
+                'navigate',
+                '--source-map', mapPath,
+                '--file', goFilePath,
+                '--line', String(position.line + 1),
+                '--column', String(position.character + 1),
+                '--reverse',
+            ],
+            cwd
+        );
+
+        const loc = parseLocationOutput(output);
+        if (!loc) {
+            return undefined;
+        }
+
+        return new vscode.Location(
+            vscode.Uri.file(loc.file),
+            new vscode.Position(loc.line - 1, loc.column - 1)
+        );
+    } catch {
+        return undefined;
+    }
+}
+
+export class GoplusDefinitionProvider implements vscode.DefinitionProvider {
     async provideDefinition(
         document: vscode.TextDocument,
         position: vscode.Position,
         _token: vscode.CancellationToken
     ): Promise<vscode.Definition | undefined> {
-        const goFilePath = document.uri.fsPath;
-
-        // Only activate for generated Go files
-        if (!path.basename(goFilePath).startsWith('zz_goplus_gen')) {
+        const wordRange = document.getWordRangeAtPosition(position, /[a-zA-Z_][a-zA-Z0-9_]*/);
+        if (!wordRange) {
             return undefined;
         }
+        const word = document.getText(wordRange);
 
-        const mapPath = findSourceMapForGoFile(goFilePath);
-        if (!mapPath) {
-            return undefined;
-        }
-
-        const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
-        const cwd = workspaceFolder?.uri.fsPath || path.dirname(goFilePath);
-
-        try {
-            const output = await execNavigate(
-                [
-                    'navigate',
-                    '--source-map', mapPath,
-                    '--file', goFilePath,
-                    '--line', String(position.line + 1),
-                    '--column', String(position.character + 1),
-                    '--reverse',
-                ],
-                cwd
-            );
-
-            const loc = parseLocationOutput(output);
-            if (!loc) {
-                return undefined;
+        // Simple regex search across workspace .gp files
+        const uris = await vscode.workspace.findFiles('**/*.gp', '**/node_modules/**');
+        // Add currently open documents that might not be saved
+        const docs = new Set(vscode.workspace.textDocuments.filter(d => d.languageId === 'goplus'));
+        for (const uri of uris) {
+            const openDoc = vscode.workspace.textDocuments.find(d => d.uri.fsPath === uri.fsPath);
+            if (!openDoc) {
+                try {
+                    const doc = await vscode.workspace.openTextDocument(uri);
+                    docs.add(doc);
+                } catch {
+                    // Ignore errors opening files
+                }
             }
-
-            return new vscode.Location(
-                vscode.Uri.file(loc.file),
-                new vscode.Position(loc.line - 1, loc.column - 1)
-            );
-        } catch {
-            return undefined;
         }
+
+        const pattern = new RegExp(`^\\s*(?:fn(?:\\s+mut)?|struct|enum|type|const|var)\\s+${word}\\b`);
+        const methodPattern = new RegExp(`^\\s*fn(?:\\s+mut)?\\s+${word}\\b`);
+
+        for (const doc of docs) {
+            for (let i = 0; i < doc.lineCount; i++) {
+                const text = doc.lineAt(i).text;
+                if (pattern.test(text) || methodPattern.test(text)) {
+                    // Found a definition
+                    const matchIndex = text.indexOf(word);
+                    return new vscode.Location(
+                        doc.uri,
+                        new vscode.Position(i, matchIndex > -1 ? matchIndex : 0)
+                    );
+                }
+            }
+        }
+
+        return undefined;
     }
 }
