@@ -80,10 +80,12 @@ With the completion of v2, the ecosystem now features production-grade tooling:
 
 ## Quick Start
 
+First, download and install `goplus` from the [Releases](https://github.com/hotamago/golang-plus/releases) page (Windows users can use the `.msi` installer). Then run:
+
 ```bash
-cargo run -- check examples/demo.gp
-cargo run -- transpile examples/demo.gp --out-dir .goplusgen
-cargo run -- run examples/demo.gp --out-dir .goplusgen
+goplus check examples/demo.gp
+goplus transpile examples/demo.gp --out-dir .goplusgen
+goplus run examples/demo.gp --out-dir .goplusgen
 ```
 
 `goplus` runs a standalone `.gp` path outside a Go module as the selected file.
@@ -92,7 +94,7 @@ If you point it at a directory, or at a file inside a Go module package, it will
 Mixed-source example:
 
 ```bash
-cargo run -- run examples/link-source/main.gp --out-dir .goplusgen
+goplus run examples/link-source/main.gp --out-dir .goplusgen
 ```
 
 The `examples/link-source` sample now includes a real `go.mod` plus nested `pkg/...` and `internal/...` packages, so it shows both same-package linking and normal imported package boundaries.
