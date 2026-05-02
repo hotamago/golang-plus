@@ -79,3 +79,29 @@ jobs:
         with:
           name: goplus-windows-installer
           path: target/wix/*.msi
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [build, build-msi]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get Version
+        id: get_version
+        run: |
+          VERSION=$(grep '^version =' Cargo.toml | head -1 | awk '{print $3}' | tr -d '"')
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.get_version.outputs.VERSION }}
+          name: Release v${{ steps.get_version.outputs.VERSION }}
+          generate_release_notes: true
+          files: dist/*
