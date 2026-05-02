@@ -116,7 +116,7 @@ export class GoplusHoverProvider implements vscode.HoverProvider {
         // Decorator hover: @name
         if (word.startsWith('@')) {
             const decoratorName = word.substring(1);
-            return this.hoverDecorator(decoratorName, lineText);
+            return await this.hoverDecorator(decoratorName, lineText);
         }
 
         // Derive kind hover inside @derive(...)
@@ -279,7 +279,7 @@ export class GoplusHoverProvider implements vscode.HoverProvider {
         return undefined;
     }
 
-    private hoverDecorator(name: string, lineText: string): vscode.Hover | undefined {
+    private async hoverDecorator(name: string, lineText: string): Promise<vscode.Hover | undefined> {
         const doc = DECORATOR_DOCS[name];
         if (!doc) {
             // Unknown/custom decorator
@@ -287,6 +287,14 @@ export class GoplusHoverProvider implements vscode.HoverProvider {
             md.appendMarkdown(`### \`@${name}\` — Custom Decorator\n\n`);
             md.appendMarkdown('A user-defined decorator function that wraps the target function.\n\n');
             md.appendMarkdown('Custom decorators take `next` (the original function) and optional arguments, returning a function with the same signature.');
+            
+            const definitionHover = await this.findDefinitionAndHover(name);
+            if (definitionHover && definitionHover.contents.length > 0) {
+                const defContent = definitionHover.contents[0] as vscode.MarkdownString;
+                md.appendMarkdown('\n\n**Decorator Definition:**\n\n');
+                md.appendMarkdown(defContent.value);
+            }
+            
             return new vscode.Hover(md);
         }
 
