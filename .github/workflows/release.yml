@@ -1,0 +1,79 @@
+name: Release Build
+
+on:
+  push:
+    branches:
+      - release
+
+jobs:
+  quality:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Check formatting
+        run: cargo fmt --check
+      - name: Run clippy
+        run: cargo clippy -- -D warnings
+      - name: Build
+        run: cargo build --verbose
+      - name: Run tests
+        run: cargo test --verbose
+
+  build:
+    name: Build Release Binaries
+    needs: quality
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: goplus-linux-amd64
+            bin_name: goplus
+          - os: windows-latest
+            artifact_name: goplus-windows-amd64.exe
+            bin_name: goplus.exe
+          - os: macos-latest
+            artifact_name: goplus-macos-amd64
+            bin_name: goplus
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Build
+        run: cargo build --release
+      - name: Prepare Artifact
+        shell: bash
+        run: |
+          mkdir dist
+          cp target/release/${{ matrix.bin_name }} dist/${{ matrix.artifact_name }}
+      - name: Upload Binary Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/${{ matrix.artifact_name }}
+
+  build-msi:
+    name: Build Windows MSI Installer
+    needs: quality
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Install cargo-wix
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-wix
+      - name: Build MSI
+        run: cargo wix --nocapture
+      - name: Upload MSI Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: goplus-windows-installer
+          path: target/wix/*.msi

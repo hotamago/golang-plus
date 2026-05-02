@@ -162,10 +162,11 @@ GoPlus provides a native-like development experience in VSCode, powered by the `
 The extension requires the `goplus` CLI to be available in your system `$PATH` (or `%PATH%` on Windows).
 
 1. **Install CLI**:
-   Ensure you have the latest `goplus` CLI installed globally:
-   ```bash
-   cargo install --path .
-   ```
+   - **Windows**: Download the `.msi` installer from the [Releases](https://github.com/hotamago/golang-plus/releases) page and run it. The installer will automatically add `goplus` to your system `$PATH`!
+   - **Other OS / From Source**:
+     ```bash
+     cargo install --path .
+     ```
 
 2. **Install Extension**:
    - Navigate to the `editors/vscode` directory.

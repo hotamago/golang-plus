@@ -2,6 +2,10 @@
 name = "goplus"
 version = "0.1.0"
 edition = "2024"
+description = "GoPlus: A modern, powerful language toolchain"
+license = "MIT"
+repository = "https://github.com/hotamago/golang-plus"
+authors = ["GoPlus Contributors"]
 
 [dependencies]
 anyhow = "1.0.98"
