@@ -42,6 +42,7 @@ const navigation_1 = require("./navigation");
 const hover_1 = require("./hover");
 const symbols_1 = require("./symbols");
 const runner_1 = require("./runner");
+const completion_1 = require("./completion");
 const GP_SELECTOR = { language: 'goplus', scheme: 'file' };
 let diagnosticCollection;
 function activate(context) {
@@ -82,6 +83,10 @@ function activate(context) {
     context.subscriptions.push(vscode.languages.registerHoverProvider(GP_SELECTOR, new hover_1.GoplusHoverProvider()));
     // --- Document Symbol Provider ---
     context.subscriptions.push(vscode.languages.registerDocumentSymbolProvider(GP_SELECTOR, new symbols_1.GoplusDocumentSymbolProvider()));
+    // --- Completion Provider ---
+    context.subscriptions.push(vscode.languages.registerCompletionItemProvider(GP_SELECTOR, new completion_1.GoplusCompletionProvider(), '@', // trigger for decorators
+    '(' // trigger for derive kinds
+    ));
     // --- Commands ---
     context.subscriptions.push(vscode.commands.registerCommand('goplus.checkFile', async () => {
         const editor = vscode.window.activeTextEditor;

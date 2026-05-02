@@ -5,6 +5,7 @@ import { navigateToGo, navigateToGp, GoplusDefinitionProvider } from './navigati
 import { GoplusHoverProvider } from './hover';
 import { GoplusDocumentSymbolProvider } from './symbols';
 import { buildFile, runFile } from './runner';
+import { GoplusCompletionProvider } from './completion';
 
 const GP_SELECTOR: vscode.DocumentSelector = { language: 'goplus', scheme: 'file' };
 
@@ -81,6 +82,16 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.languages.registerDocumentSymbolProvider(
             GP_SELECTOR,
             new GoplusDocumentSymbolProvider()
+        )
+    );
+
+    // --- Completion Provider ---
+    context.subscriptions.push(
+        vscode.languages.registerCompletionItemProvider(
+            GP_SELECTOR,
+            new GoplusCompletionProvider(),
+            '@', // trigger for decorators
+            '('  // trigger for derive kinds
         )
     );
 
