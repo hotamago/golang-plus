@@ -1,5 +1,5 @@
-use std::collections::{HashMap, BTreeSet, VecDeque};
 use super::*;
+use std::collections::{BTreeSet, HashMap, VecDeque};
 
 pub(super) fn transpile_module_projects(
     entry_project: &Project,
@@ -19,7 +19,7 @@ pub(super) fn transpile_module_projects(
 
     // Discover all packages in the module
     let all_packages = discover_all_packages(module_root)?;
-    
+
     // Build dependency graph
     let mut graph = HashMap::new();
     let mut in_degree = HashMap::new();

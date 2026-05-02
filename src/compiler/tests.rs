@@ -444,10 +444,6 @@ fn run() -> string {
 fn fmt_check_validates_without_rewriting() {
     let dir = tempdir().expect("tempdir");
     let src = dir.path().join("main.gp");
-    fs::write(
-        &src,
-        "package main\n\nfn main() -> ! {\n\treturn\n}\n",
-    )
-    .expect("write");
+    fs::write(&src, "package main\n\nfn main() -> ! {\n\treturn\n}\n").expect("write");
     assert!(fmt_check_file(&src).is_ok());
 }

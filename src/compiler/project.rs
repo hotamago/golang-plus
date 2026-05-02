@@ -282,14 +282,14 @@ pub(super) fn discover_all_packages(module_root: &Path) -> Result<Vec<PathBuf>> 
 
         if let Ok(entries) = fs::read_dir(&dir) {
             for entry in entries.flatten() {
-                if let Ok(file_type) = entry.file_type() {
-                    if file_type.is_dir() {
-                        let path = entry.path();
-                        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                        // Skip hidden directories and output directories
-                        if !name.starts_with('.') && !name.starts_with('_') && name != "vendor" {
-                            dirs_to_visit.push(path);
-                        }
+                if let Ok(file_type) = entry.file_type()
+                    && file_type.is_dir()
+                {
+                    let path = entry.path();
+                    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                    // Skip hidden directories and output directories
+                    if !name.starts_with('.') && !name.starts_with('_') && name != "vendor" {
+                        dirs_to_visit.push(path);
                     }
                 }
             }

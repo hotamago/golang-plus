@@ -110,6 +110,42 @@
       {
         "command": "goplus.navigateToGp",
         "title": "GoPlus: Navigate to GoPlus Source"
+      },
+      {
+        "command": "goplus.buildFile",
+        "title": "GoPlus: Build Current File"
+      },
+      {
+        "command": "goplus.runFile",
+        "title": "GoPlus: Run Current File"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "goplus.buildFile",
+          "when": "resourceLangId == goplus",
+          "group": "1_modification"
+        },
+        {
+          "command": "goplus.runFile",
+          "when": "resourceLangId == goplus",
+          "group": "1_modification"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "goplus.buildFile",
+        "key": "ctrl+alt+b",
+        "mac": "cmd+alt+b",
+        "when": "editorLangId == goplus"
+      },
+      {
+        "command": "goplus.runFile",
+        "key": "ctrl+alt+r",
+        "mac": "cmd+alt+r",
+        "when": "editorLangId == goplus"
       }
     ]
   },

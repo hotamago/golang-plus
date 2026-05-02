@@ -3,6 +3,8 @@ import { runAllDiagnostics, runCheck, runLint } from './diagnostics';
 import { GoplusFormattingProvider } from './formatter';
 import { navigateToGo, navigateToGp, GoplusDefinitionProvider } from './navigation';
 import { GoplusHoverProvider } from './hover';
+import { GoplusDocumentSymbolProvider } from './symbols';
+import { buildFile, runFile } from './runner';
 
 const GP_SELECTOR: vscode.DocumentSelector = { language: 'goplus', scheme: 'file' };
 
@@ -71,6 +73,14 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.languages.registerHoverProvider(
             GP_SELECTOR,
             new GoplusHoverProvider()
+        )
+    );
+
+    // --- Document Symbol Provider ---
+    context.subscriptions.push(
+        vscode.languages.registerDocumentSymbolProvider(
+            GP_SELECTOR,
+            new GoplusDocumentSymbolProvider()
         )
     );
 
@@ -147,6 +157,28 @@ export function activate(context: vscode.ExtensionContext): void {
             } else {
                 vscode.window.showWarningMessage('Could not find corresponding GoPlus code.');
             }
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('goplus.buildFile', async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || editor.document.languageId !== 'goplus') {
+                vscode.window.showWarningMessage('Open a .gp file to build.');
+                return;
+            }
+            await buildFile(editor.document);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('goplus.runFile', async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || editor.document.languageId !== 'goplus') {
+                vscode.window.showWarningMessage('Open a .gp file to run.');
+                return;
+            }
+            await runFile(editor.document);
         })
     );
 }

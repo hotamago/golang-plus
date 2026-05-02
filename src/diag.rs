@@ -98,10 +98,7 @@ impl Diagnostic {
                     "{path}: {} {}: {} (hint: {hint})",
                     self.severity, self.code, self.message
                 ),
-                None => format!(
-                    "{path}: {} {}: {}",
-                    self.severity, self.code, self.message
-                ),
+                None => format!("{path}: {} {}: {}", self.severity, self.code, self.message),
             },
         }
     }
@@ -163,7 +160,9 @@ impl Diagnostics {
     }
 
     pub fn has_errors(&self) -> bool {
-        self.items.iter().any(|d| d.severity == DiagnosticSeverity::Error)
+        self.items
+            .iter()
+            .any(|d| d.severity == DiagnosticSeverity::Error)
     }
 
     pub fn has_any(&self) -> bool {

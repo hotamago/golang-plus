@@ -40,6 +40,8 @@ const diagnostics_1 = require("./diagnostics");
 const formatter_1 = require("./formatter");
 const navigation_1 = require("./navigation");
 const hover_1 = require("./hover");
+const symbols_1 = require("./symbols");
+const runner_1 = require("./runner");
 const GP_SELECTOR = { language: 'goplus', scheme: 'file' };
 let diagnosticCollection;
 function activate(context) {
@@ -78,6 +80,8 @@ function activate(context) {
     context.subscriptions.push(vscode.languages.registerDefinitionProvider(GP_SELECTOR, new navigation_1.GoplusDefinitionProvider()));
     // --- Hover provider ---
     context.subscriptions.push(vscode.languages.registerHoverProvider(GP_SELECTOR, new hover_1.GoplusHoverProvider()));
+    // --- Document Symbol Provider ---
+    context.subscriptions.push(vscode.languages.registerDocumentSymbolProvider(GP_SELECTOR, new symbols_1.GoplusDocumentSymbolProvider()));
     // --- Commands ---
     context.subscriptions.push(vscode.commands.registerCommand('goplus.checkFile', async () => {
         const editor = vscode.window.activeTextEditor;
@@ -140,6 +144,22 @@ function activate(context) {
         else {
             vscode.window.showWarningMessage('Could not find corresponding GoPlus code.');
         }
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('goplus.buildFile', async () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || editor.document.languageId !== 'goplus') {
+            vscode.window.showWarningMessage('Open a .gp file to build.');
+            return;
+        }
+        await (0, runner_1.buildFile)(editor.document);
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('goplus.runFile', async () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || editor.document.languageId !== 'goplus') {
+            vscode.window.showWarningMessage('Open a .gp file to run.');
+            return;
+        }
+        await (0, runner_1.runFile)(editor.document);
     }));
 }
 function deactivate() {

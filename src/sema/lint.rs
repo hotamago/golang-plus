@@ -196,18 +196,19 @@ fn lint_naming_conventions(program: &Program, diagnostics: &mut Vec<Diagnostic>)
 /// L0003: Empty function body.
 fn lint_empty_function_bodies(program: &Program, diagnostics: &mut Vec<Diagnostic>) {
     for item in &program.items {
-        if let Item::Function(f) = item {
-            if f.body.stmts.is_empty() && f.name != "main" {
-                diagnostics.push(
-                    Diagnostic::warning(
-                        format!("function `{}` has an empty body", f.name),
-                        Some(f.span.clone()),
-                    )
-                    .with_code("L0003")
-                    .with_hint("add an implementation or remove the function")
-                    .with_severity(DiagnosticSeverity::Warning),
-                );
-            }
+        if let Item::Function(f) = item
+            && f.body.stmts.is_empty()
+            && f.name != "main"
+        {
+            diagnostics.push(
+                Diagnostic::warning(
+                    format!("function `{}` has an empty body", f.name),
+                    Some(f.span.clone()),
+                )
+                .with_code("L0003")
+                .with_hint("add an implementation or remove the function")
+                .with_severity(DiagnosticSeverity::Warning),
+            );
         }
     }
 }
@@ -215,22 +216,20 @@ fn lint_empty_function_bodies(program: &Program, diagnostics: &mut Vec<Diagnosti
 /// L0004: Redundant return at end of void function.
 fn lint_redundant_return(program: &Program, diagnostics: &mut Vec<Diagnostic>) {
     for item in &program.items {
-        if let Item::Function(f) = item {
-            if matches!(f.ret, ReturnType::Void) {
-                if let Some(Stmt::Return(ret)) = f.body.stmts.last() {
-                    if ret.exprs.is_empty() {
-                        diagnostics.push(
-                            Diagnostic::warning(
-                                "redundant `return` at end of void function",
-                                Some(ret.span.clone()),
-                            )
-                            .with_code("L0004")
-                            .with_hint("remove the trailing `return`")
-                            .with_severity(DiagnosticSeverity::Warning),
-                        );
-                    }
-                }
-            }
+        if let Item::Function(f) = item
+            && matches!(f.ret, ReturnType::Void)
+            && let Some(Stmt::Return(ret)) = f.body.stmts.last()
+            && ret.exprs.is_empty()
+        {
+            diagnostics.push(
+                Diagnostic::warning(
+                    "redundant `return` at end of void function",
+                    Some(ret.span.clone()),
+                )
+                .with_code("L0004")
+                .with_hint("remove the trailing `return`")
+                .with_severity(DiagnosticSeverity::Warning),
+            );
         }
     }
 }
@@ -295,7 +294,9 @@ fn lint_missing_string_derive(
             if !has_string_derive {
                 // Check if enum is used in format-like expressions
                 let enum_used_in_format = all_text.iter().any(|text| {
-                    (text.contains("Println") || text.contains("Printf") || text.contains("Sprintf"))
+                    (text.contains("Println")
+                        || text.contains("Printf")
+                        || text.contains("Sprintf"))
                         && text.contains(&e.name)
                 });
                 if enum_used_in_format {

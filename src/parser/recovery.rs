@@ -16,8 +16,11 @@ impl<'a> Parser<'a> {
             }
             if ann.args.is_empty() {
                 self.diagnostics.push(
-                    Diagnostic::new("@derive requires at least one target", Some(ann.span.clone()))
-                        .with_hint("example: @derive(String), @derive(Debug, Equal)"),
+                    Diagnostic::new(
+                        "@derive requires at least one target",
+                        Some(ann.span.clone()),
+                    )
+                    .with_hint("example: @derive(String), @derive(Debug, Equal)"),
                 );
                 continue;
             }
@@ -38,7 +41,9 @@ impl<'a> Parser<'a> {
                                 format!("unsupported derive target `{other}`"),
                                 Some(ann.span.clone()),
                             )
-                            .with_hint("supported: String, Debug, Equal, JSON, JsonMarshal, JsonUnmarshal"),
+                            .with_hint(
+                                "supported: String, Debug, Equal, JSON, JsonMarshal, JsonUnmarshal",
+                            ),
                         );
                     }
                 }

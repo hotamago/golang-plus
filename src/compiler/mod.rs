@@ -53,18 +53,20 @@ pub fn fmt_check_file(path: &Path) -> Result<()> {
     let source_path = project::canonicalize_existing(path)?;
     let source = fs::read_to_string(&source_path)
         .with_context(|| format!("failed to read source file {}", source_path.display()))?;
-    let program = parse_program(&source)
-        .map_err(|diags| {
-            let items = vec![UnitDiagnostics {
-                path: source_path.clone(),
-                source: source.clone(),
-                diagnostics: diags,
-            }];
-            anyhow!(diagnostics::render_unit_diagnostics(&items))
-        })?;
+    let program = parse_program(&source).map_err(|diags| {
+        let items = vec![UnitDiagnostics {
+            path: source_path.clone(),
+            source: source.clone(),
+            diagnostics: diags,
+        }];
+        anyhow!(diagnostics::render_unit_diagnostics(&items))
+    })?;
     let formatted = format_gp(&program, &source);
     if formatted != source {
-        bail!("file {} would be reformatted by `goplus fmt`", source_path.display());
+        bail!(
+            "file {} would be reformatted by `goplus fmt`",
+            source_path.display()
+        );
     }
     Ok(())
 }
@@ -73,15 +75,14 @@ pub fn fmt_file(path: &Path) -> Result<()> {
     let source_path = project::canonicalize_existing(path)?;
     let source = fs::read_to_string(&source_path)
         .with_context(|| format!("failed to read source file {}", source_path.display()))?;
-    let program = parse_program(&source)
-        .map_err(|diags| {
-            let items = vec![UnitDiagnostics {
-                path: source_path.clone(),
-                source: source.clone(),
-                diagnostics: diags,
-            }];
-            anyhow!(diagnostics::render_unit_diagnostics(&items))
-        })?;
+    let program = parse_program(&source).map_err(|diags| {
+        let items = vec![UnitDiagnostics {
+            path: source_path.clone(),
+            source: source.clone(),
+            diagnostics: diags,
+        }];
+        anyhow!(diagnostics::render_unit_diagnostics(&items))
+    })?;
     let formatted = format_gp(&program, &source);
     if formatted == source {
         println!("already formatted {}", source_path.display());
@@ -97,15 +98,14 @@ pub fn fmt_file_stdout(path: &Path) -> Result<()> {
     let source_path = project::canonicalize_existing(path)?;
     let source = fs::read_to_string(&source_path)
         .with_context(|| format!("failed to read source file {}", source_path.display()))?;
-    let program = parse_program(&source)
-        .map_err(|diags| {
-            let items = vec![UnitDiagnostics {
-                path: source_path.clone(),
-                source: source.clone(),
-                diagnostics: diags,
-            }];
-            anyhow!(diagnostics::render_unit_diagnostics(&items))
-        })?;
+    let program = parse_program(&source).map_err(|diags| {
+        let items = vec![UnitDiagnostics {
+            path: source_path.clone(),
+            source: source.clone(),
+            diagnostics: diags,
+        }];
+        anyhow!(diagnostics::render_unit_diagnostics(&items))
+    })?;
     let formatted = format_gp(&program, &source);
     print!("{}", formatted);
     Ok(())

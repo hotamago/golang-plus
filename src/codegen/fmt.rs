@@ -18,7 +18,8 @@ impl GpFormatter {
     }
 
     fn emit_program(&mut self, program: &Program) {
-        self.output.push_str(&format!("package {}\n", program.package));
+        self.output
+            .push_str(&format!("package {}\n", program.package));
 
         if !program.imports.is_empty() {
             self.output.push('\n');
@@ -84,14 +85,16 @@ impl GpFormatter {
                 DeriveKind::JsonUnmarshal => "JsonUnmarshal",
             })
             .collect();
-        self.output.push_str(&format!("@derive({})\n", names.join(", ")));
+        self.output
+            .push_str(&format!("@derive({})\n", names.join(", ")));
     }
 
     fn emit_struct(&mut self, decl: &StructDecl) {
         self.emit_derives(&decl.derives);
         self.output.push_str(&format!("struct {} {{\n", decl.name));
         for field in &decl.fields {
-            self.output.push_str(&format!("\t{}: {}\n", field.name, field.ty.raw));
+            self.output
+                .push_str(&format!("\t{}: {}\n", field.name, field.ty.raw));
         }
         self.output.push('}');
     }
@@ -233,7 +236,8 @@ impl GpFormatter {
                 } else {
                     v.expr.text.clone()
                 };
-                self.output.push_str(&format!("{}{} := {}\n", tabs, v.name, expr_text));
+                self.output
+                    .push_str(&format!("{}{} := {}\n", tabs, v.name, expr_text));
             }
             Stmt::Assign(a) => {
                 self.output.push_str(&format!("{}{}\n", tabs, a.text));
@@ -242,14 +246,19 @@ impl GpFormatter {
                 if r.exprs.is_empty() {
                     self.output.push_str(&format!("{}return\n", tabs));
                 } else {
-                    let exprs: Vec<String> = r.exprs.iter().map(|e| {
-                        if e.has_try {
-                            format!("{}?", e.text)
-                        } else {
-                            e.text.clone()
-                        }
-                    }).collect();
-                    self.output.push_str(&format!("{}return {}\n", tabs, exprs.join(", ")));
+                    let exprs: Vec<String> = r
+                        .exprs
+                        .iter()
+                        .map(|e| {
+                            if e.has_try {
+                                format!("{}?", e.text)
+                            } else {
+                                e.text.clone()
+                            }
+                        })
+                        .collect();
+                    self.output
+                        .push_str(&format!("{}return {}\n", tabs, exprs.join(", ")));
                 }
             }
             Stmt::Defer(raw) => self.output.push_str(&format!("{}{}\n", tabs, raw.text)),
@@ -277,7 +286,8 @@ impl GpFormatter {
         } else {
             m.value.text.clone()
         };
-        self.output.push_str(&format!("{}match {} {{\n", tabs, value));
+        self.output
+            .push_str(&format!("{}match {} {{\n", tabs, value));
         for arm in &m.arms {
             self.emit_match_arm(arm, tabs, indent);
         }

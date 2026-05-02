@@ -79,7 +79,11 @@ impl<'a> GoGenerator<'a> {
             .iter()
             .map(|f| format!("{}:%+v", f.name))
             .collect();
-        let args: Vec<String> = decl.fields.iter().map(|f| format!("s.{}", f.name)).collect();
+        let args: Vec<String> = decl
+            .fields
+            .iter()
+            .map(|f| format!("s.{}", f.name))
+            .collect();
         format!(
             "func (s {name}) Debug() string {{\n\treturn {fmt}.Sprintf(\"{name}{{{parts}}}\", {args})\n}}",
             name = decl.name,
@@ -209,10 +213,25 @@ impl<'a> GoGenerator<'a> {
             "func (s {name}) MarshalJSON() ([]byte, error) {{\n\treturn {json}.Marshal(struct {{\n{fields}\n\t}}{{{inits}}})\n}}",
             name = decl.name,
             json = json_name,
-            fields = decl.fields.iter().map(|f| {
-                format!("\t\t{} {} `json:\"{}\"`", f.name, render_type_ref(&f.ty), to_json_key(&f.name))
-            }).collect::<Vec<_>>().join("\n"),
-            inits = decl.fields.iter().map(|f| format!("s.{}", f.name)).collect::<Vec<_>>().join(", ")
+            fields = decl
+                .fields
+                .iter()
+                .map(|f| {
+                    format!(
+                        "\t\t{} {} `json:\"{}\"`",
+                        f.name,
+                        render_type_ref(&f.ty),
+                        to_json_key(&f.name)
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n"),
+            inits = decl
+                .fields
+                .iter()
+                .map(|f| format!("s.{}", f.name))
+                .collect::<Vec<_>>()
+                .join(", ")
         )
     }
 
@@ -268,12 +287,7 @@ impl<'a> GoGenerator<'a> {
                         .iter()
                         .enumerate()
                         .map(|(i, _)| {
-                            format!(
-                                "\"value{}\": e.{}{}",
-                                i,
-                                lower_ident(&variant.name),
-                                i
-                            )
+                            format!("\"value{}\": e.{}{}", i, lower_ident(&variant.name), i)
                         })
                         .collect();
                     out.push_str(&format!(
@@ -318,10 +332,7 @@ impl<'a> GoGenerator<'a> {
             out.push_str("\tswitch raw[\"type\"] {\n");
             for variant in &decl.variants {
                 out.push_str(&format!("\tcase \"{}\":\n", variant.name));
-                out.push_str(&format!(
-                    "\t\te.tag = {}Tag{}\n",
-                    decl.name, variant.name
-                ));
+                out.push_str(&format!("\t\te.tag = {}Tag{}\n", decl.name, variant.name));
             }
             out.push_str(&format!(
                 "\tdefault:\n\t\treturn {}.Errorf(\"unknown {} type: %v\", raw[\"type\"])\n\t}}\n",
