@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { runAllDiagnostics, runCheck, runLint } from './diagnostics';
+import { runAllDiagnostics, runCheck, runLint, toDiagnostics } from './diagnostics';
 import { GoplusFormattingProvider } from './formatter';
 import { navigateToGo, navigateToGp, GoplusDefinitionProvider } from './navigation';
 import { GoplusHoverProvider } from './hover';
@@ -104,9 +104,14 @@ export function activate(context: vscode.ExtensionContext): void {
                 vscode.window.showWarningMessage('Open a .gp file to run GoPlus check.');
                 return;
             }
-            const diags = await runCheck(editor.document);
-            diagnosticCollection.set(editor.document.uri, diags);
-            if (diags.length === 0) {
+            const items = await runCheck(editor.document);
+            const grouped = toDiagnostics(items);
+            
+            diagnosticCollection.set(editor.document.uri, []);
+            for (const [uriStr, diags] of grouped.entries()) {
+                diagnosticCollection.set(vscode.Uri.parse(uriStr), diags);
+            }
+            if (items.length === 0) {
                 vscode.window.showInformationMessage('GoPlus check: no issues found.');
             }
         })
@@ -119,9 +124,14 @@ export function activate(context: vscode.ExtensionContext): void {
                 vscode.window.showWarningMessage('Open a .gp file to run GoPlus lint.');
                 return;
             }
-            const diags = await runLint(editor.document);
-            diagnosticCollection.set(editor.document.uri, diags);
-            if (diags.length === 0) {
+            const items = await runLint(editor.document);
+            const grouped = toDiagnostics(items);
+            
+            diagnosticCollection.set(editor.document.uri, []);
+            for (const [uriStr, diags] of grouped.entries()) {
+                diagnosticCollection.set(vscode.Uri.parse(uriStr), diags);
+            }
+            if (items.length === 0) {
                 vscode.window.showInformationMessage('GoPlus lint: no warnings found.');
             }
         })

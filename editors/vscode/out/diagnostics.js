@@ -33,6 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.toDiagnostics = toDiagnostics;
 exports.runCheck = runCheck;
 exports.runLint = runLint;
 exports.runAllDiagnostics = runAllDiagnostics;
@@ -72,12 +73,18 @@ function parseDiagnosticsJson(raw) {
     }
     return allDiagnostics;
 }
+function normalizePath(p) {
+    if (p.startsWith('\\\\?\\')) {
+        return p.substring(4);
+    }
+    return p;
+}
 function toDiagnostics(items) {
-    return items.map(item => {
+    const map = new Map();
+    for (const item of items) {
         const range = item.span
             ? new vscode.Range(Math.max(0, item.span.line - 1), Math.max(0, item.span.column - 1), Math.max(0, item.span.endLine - 1), Math.max(0, item.span.endColumn - 1))
             : new vscode.Range(0, 0, 0, 0);
-        // Append hint directly to the message to improve visibility
         let message = item.message;
         if (item.hint) {
             message += `\n\nHint: ${item.hint}`;
@@ -85,13 +92,19 @@ function toDiagnostics(items) {
         const diag = new vscode.Diagnostic(range, message, severityToVscode(item.severity));
         diag.code = item.code;
         diag.source = 'goplus';
+        const normPath = normalizePath(item.path);
         if (item.hint) {
             diag.relatedInformation = [
-                new vscode.DiagnosticRelatedInformation(new vscode.Location(vscode.Uri.file(item.path), range), `hint: ${item.hint}`),
+                new vscode.DiagnosticRelatedInformation(new vscode.Location(vscode.Uri.file(normPath), range), `hint: ${item.hint}`),
             ];
         }
-        return diag;
-    });
+        const uriStr = vscode.Uri.file(normPath).toString();
+        if (!map.has(uriStr)) {
+            map.set(uriStr, []);
+        }
+        map.get(uriStr).push(diag);
+    }
+    return map;
 }
 function getGoplusBinary() {
     const config = vscode.workspace.getConfiguration('goplus');
@@ -120,25 +133,23 @@ async function runCheck(document) {
     const filePath = document.uri.fsPath;
     const cwd = getCwd(document);
     const output = await execGoplus(['check', filePath, '--diagnostic-format', 'json'], cwd);
-    const items = parseDiagnosticsJson(output);
-    return toDiagnostics(items);
+    return parseDiagnosticsJson(output);
 }
 async function runLint(document) {
     const filePath = document.uri.fsPath;
     const cwd = getCwd(document);
     const output = await execGoplus(['lint', filePath, '--diagnostic-format', 'json'], cwd);
-    const items = parseDiagnosticsJson(output);
-    return toDiagnostics(items);
+    return parseDiagnosticsJson(output);
 }
 async function runAllDiagnostics(document, collection) {
     const config = vscode.workspace.getConfiguration('goplus');
     const doCheck = config.get('checkOnSave', true);
     const doLint = config.get('lintOnSave', true);
-    const allDiags = [];
+    const allItems = [];
     if (doCheck) {
         try {
-            const checkDiags = await runCheck(document);
-            allDiags.push(...checkDiags);
+            const checkItems = await runCheck(document);
+            allItems.push(...checkItems);
         }
         catch {
             // Binary not found or other error — silently ignore
@@ -146,13 +157,20 @@ async function runAllDiagnostics(document, collection) {
     }
     if (doLint) {
         try {
-            const lintDiags = await runLint(document);
-            allDiags.push(...lintDiags);
+            const lintItems = await runLint(document);
+            allItems.push(...lintItems);
         }
         catch {
             // Binary not found or other error — silently ignore
         }
     }
-    collection.set(document.uri, allDiags);
+    // Clear previous diagnostics for this document first
+    collection.set(document.uri, []);
+    const grouped = toDiagnostics(allItems);
+    // We should also ensure that if there are NO diagnostics for the active document, it gets cleared.
+    // Setting it to [] above handles it.
+    for (const [uriStr, diags] of grouped.entries()) {
+        collection.set(vscode.Uri.parse(uriStr), diags);
+    }
 }
 //# sourceMappingURL=diagnostics.js.map

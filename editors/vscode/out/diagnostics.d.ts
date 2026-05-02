@@ -16,7 +16,8 @@ export interface GoplusDiagnosticJson {
     hint: string | null;
     source: string;
 }
-export declare function runCheck(document: vscode.TextDocument): Promise<vscode.Diagnostic[]>;
-export declare function runLint(document: vscode.TextDocument): Promise<vscode.Diagnostic[]>;
+export declare function toDiagnostics(items: GoplusDiagnosticJson[]): Map<string, vscode.Diagnostic[]>;
+export declare function runCheck(document: vscode.TextDocument): Promise<GoplusDiagnosticJson[]>;
+export declare function runLint(document: vscode.TextDocument): Promise<GoplusDiagnosticJson[]>;
 export declare function runAllDiagnostics(document: vscode.TextDocument, collection: vscode.DiagnosticCollection): Promise<void>;
 //# sourceMappingURL=diagnostics.d.ts.map

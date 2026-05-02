@@ -95,9 +95,13 @@ function activate(context) {
             vscode.window.showWarningMessage('Open a .gp file to run GoPlus check.');
             return;
         }
-        const diags = await (0, diagnostics_1.runCheck)(editor.document);
-        diagnosticCollection.set(editor.document.uri, diags);
-        if (diags.length === 0) {
+        const items = await (0, diagnostics_1.runCheck)(editor.document);
+        const grouped = (0, diagnostics_1.toDiagnostics)(items);
+        diagnosticCollection.set(editor.document.uri, []);
+        for (const [uriStr, diags] of grouped.entries()) {
+            diagnosticCollection.set(vscode.Uri.parse(uriStr), diags);
+        }
+        if (items.length === 0) {
             vscode.window.showInformationMessage('GoPlus check: no issues found.');
         }
     }));
@@ -107,9 +111,13 @@ function activate(context) {
             vscode.window.showWarningMessage('Open a .gp file to run GoPlus lint.');
             return;
         }
-        const diags = await (0, diagnostics_1.runLint)(editor.document);
-        diagnosticCollection.set(editor.document.uri, diags);
-        if (diags.length === 0) {
+        const items = await (0, diagnostics_1.runLint)(editor.document);
+        const grouped = (0, diagnostics_1.toDiagnostics)(items);
+        diagnosticCollection.set(editor.document.uri, []);
+        for (const [uriStr, diags] of grouped.entries()) {
+            diagnosticCollection.set(vscode.Uri.parse(uriStr), diags);
+        }
+        if (items.length === 0) {
             vscode.window.showInformationMessage('GoPlus lint: no warnings found.');
         }
     }));

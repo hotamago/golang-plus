@@ -58,8 +58,17 @@ function parseDiagnosticsJson(raw: string): GoplusDiagnosticJson[] {
     return allDiagnostics;
 }
 
-function toDiagnostics(items: GoplusDiagnosticJson[]): vscode.Diagnostic[] {
-    return items.map(item => {
+function normalizePath(p: string): string {
+    if (p.startsWith('\\\\?\\')) {
+        return p.substring(4);
+    }
+    return p;
+}
+
+export function toDiagnostics(items: GoplusDiagnosticJson[]): Map<string, vscode.Diagnostic[]> {
+    const map = new Map<string, vscode.Diagnostic[]>();
+
+    for (const item of items) {
         const range = item.span
             ? new vscode.Range(
                   Math.max(0, item.span.line - 1),
@@ -69,7 +78,6 @@ function toDiagnostics(items: GoplusDiagnosticJson[]): vscode.Diagnostic[] {
               )
             : new vscode.Range(0, 0, 0, 0);
 
-        // Append hint directly to the message to improve visibility
         let message = item.message;
         if (item.hint) {
             message += `\n\nHint: ${item.hint}`;
@@ -83,17 +91,25 @@ function toDiagnostics(items: GoplusDiagnosticJson[]): vscode.Diagnostic[] {
         diag.code = item.code;
         diag.source = 'goplus';
 
+        const normPath = normalizePath(item.path);
+
         if (item.hint) {
             diag.relatedInformation = [
                 new vscode.DiagnosticRelatedInformation(
-                    new vscode.Location(vscode.Uri.file(item.path), range),
+                    new vscode.Location(vscode.Uri.file(normPath), range),
                     `hint: ${item.hint}`
                 ),
             ];
         }
 
-        return diag;
-    });
+        const uriStr = vscode.Uri.file(normPath).toString();
+        if (!map.has(uriStr)) {
+            map.set(uriStr, []);
+        }
+        map.get(uriStr)!.push(diag);
+    }
+
+    return map;
 }
 
 function getGoplusBinary(): string {
@@ -122,20 +138,18 @@ function execGoplus(args: string[], cwd: string): Promise<string> {
     });
 }
 
-export async function runCheck(document: vscode.TextDocument): Promise<vscode.Diagnostic[]> {
+export async function runCheck(document: vscode.TextDocument): Promise<GoplusDiagnosticJson[]> {
     const filePath = document.uri.fsPath;
     const cwd = getCwd(document);
     const output = await execGoplus(['check', filePath, '--diagnostic-format', 'json'], cwd);
-    const items = parseDiagnosticsJson(output);
-    return toDiagnostics(items);
+    return parseDiagnosticsJson(output);
 }
 
-export async function runLint(document: vscode.TextDocument): Promise<vscode.Diagnostic[]> {
+export async function runLint(document: vscode.TextDocument): Promise<GoplusDiagnosticJson[]> {
     const filePath = document.uri.fsPath;
     const cwd = getCwd(document);
     const output = await execGoplus(['lint', filePath, '--diagnostic-format', 'json'], cwd);
-    const items = parseDiagnosticsJson(output);
-    return toDiagnostics(items);
+    return parseDiagnosticsJson(output);
 }
 
 export async function runAllDiagnostics(
@@ -146,12 +160,12 @@ export async function runAllDiagnostics(
     const doCheck = config.get<boolean>('checkOnSave', true);
     const doLint = config.get<boolean>('lintOnSave', true);
 
-    const allDiags: vscode.Diagnostic[] = [];
+    const allItems: GoplusDiagnosticJson[] = [];
 
     if (doCheck) {
         try {
-            const checkDiags = await runCheck(document);
-            allDiags.push(...checkDiags);
+            const checkItems = await runCheck(document);
+            allItems.push(...checkItems);
         } catch {
             // Binary not found or other error — silently ignore
         }
@@ -159,12 +173,22 @@ export async function runAllDiagnostics(
 
     if (doLint) {
         try {
-            const lintDiags = await runLint(document);
-            allDiags.push(...lintDiags);
+            const lintItems = await runLint(document);
+            allItems.push(...lintItems);
         } catch {
             // Binary not found or other error — silently ignore
         }
     }
 
-    collection.set(document.uri, allDiags);
+    // Clear previous diagnostics for this document first
+    collection.set(document.uri, []);
+
+    const grouped = toDiagnostics(allItems);
+    
+    // We should also ensure that if there are NO diagnostics for the active document, it gets cleared.
+    // Setting it to [] above handles it.
+    
+    for (const [uriStr, diags] of grouped.entries()) {
+        collection.set(vscode.Uri.parse(uriStr), diags);
+    }
 }
