@@ -35,19 +35,27 @@ function severityToVscode(sev: string): vscode.DiagnosticSeverity {
 }
 
 function parseDiagnosticsJson(raw: string): GoplusDiagnosticJson[] {
-    try {
-        // The output may contain non-JSON lines (e.g. "no lint warnings").
-        // Find the JSON object in the output.
-        const jsonStart = raw.indexOf('{');
-        if (jsonStart === -1) {
-            return [];
+    const lines = raw.split('\n');
+    const allDiagnostics: GoplusDiagnosticJson[] = [];
+    
+    for (const line of lines) {
+        const jsonStart = line.indexOf('{');
+        if (jsonStart === -1) continue;
+        
+        try {
+            const jsonStr = line.substring(jsonStart);
+            const parsed = JSON.parse(jsonStr);
+            if (parsed && Array.isArray(parsed.diagnostics)) {
+                allDiagnostics.push(...parsed.diagnostics);
+            } else if (parsed && parsed.path && parsed.message) {
+                // Handle fallback where single diagnostic is printed
+                allDiagnostics.push(parsed as GoplusDiagnosticJson);
+            }
+        } catch {
+            // Ignore parse errors on this line
         }
-        const jsonStr = raw.substring(jsonStart);
-        const parsed: DiagnosticsOutput = JSON.parse(jsonStr);
-        return parsed.diagnostics || [];
-    } catch {
-        return [];
     }
+    return allDiagnostics;
 }
 
 function toDiagnostics(items: GoplusDiagnosticJson[]): vscode.Diagnostic[] {
@@ -61,9 +69,15 @@ function toDiagnostics(items: GoplusDiagnosticJson[]): vscode.Diagnostic[] {
               )
             : new vscode.Range(0, 0, 0, 0);
 
+        // Append hint directly to the message to improve visibility
+        let message = item.message;
+        if (item.hint) {
+            message += `\n\nHint: ${item.hint}`;
+        }
+
         const diag = new vscode.Diagnostic(
             range,
-            item.message,
+            message,
             severityToVscode(item.severity)
         );
         diag.code = item.code;
@@ -98,9 +112,11 @@ function getCwd(document: vscode.TextDocument): string {
 function execGoplus(args: string[], cwd: string): Promise<string> {
     const binary = getGoplusBinary();
     return new Promise((resolve, reject) => {
-        cp.execFile(binary, args, { cwd, timeout: 30000 }, (err, stdout, stderr) => {
-            // goplus may exit with non-zero for diagnostics, which is expected.
-            const output = (stdout || '') + (stderr || '');
+        cp.execFile(binary, args, { cwd, timeout: 30000, maxBuffer: 1024 * 1024 * 5 }, (err, stdout, stderr) => {
+            if (err && (err as any).code === 'ENOENT') {
+                return reject(new Error(`GoPlus binary not found: ${binary}`));
+            }
+            const output = (stdout || '') + '\n' + (stderr || '');
             resolve(output);
         });
     });

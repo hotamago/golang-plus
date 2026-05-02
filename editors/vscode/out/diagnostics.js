@@ -49,27 +49,40 @@ function severityToVscode(sev) {
     }
 }
 function parseDiagnosticsJson(raw) {
-    try {
-        // The output may contain non-JSON lines (e.g. "no lint warnings").
-        // Find the JSON object in the output.
-        const jsonStart = raw.indexOf('{');
-        if (jsonStart === -1) {
-            return [];
+    const lines = raw.split('\n');
+    const allDiagnostics = [];
+    for (const line of lines) {
+        const jsonStart = line.indexOf('{');
+        if (jsonStart === -1)
+            continue;
+        try {
+            const jsonStr = line.substring(jsonStart);
+            const parsed = JSON.parse(jsonStr);
+            if (parsed && Array.isArray(parsed.diagnostics)) {
+                allDiagnostics.push(...parsed.diagnostics);
+            }
+            else if (parsed && parsed.path && parsed.message) {
+                // Handle fallback where single diagnostic is printed
+                allDiagnostics.push(parsed);
+            }
         }
-        const jsonStr = raw.substring(jsonStart);
-        const parsed = JSON.parse(jsonStr);
-        return parsed.diagnostics || [];
+        catch {
+            // Ignore parse errors on this line
+        }
     }
-    catch {
-        return [];
-    }
+    return allDiagnostics;
 }
 function toDiagnostics(items) {
     return items.map(item => {
         const range = item.span
             ? new vscode.Range(Math.max(0, item.span.line - 1), Math.max(0, item.span.column - 1), Math.max(0, item.span.endLine - 1), Math.max(0, item.span.endColumn - 1))
             : new vscode.Range(0, 0, 0, 0);
-        const diag = new vscode.Diagnostic(range, item.message, severityToVscode(item.severity));
+        // Append hint directly to the message to improve visibility
+        let message = item.message;
+        if (item.hint) {
+            message += `\n\nHint: ${item.hint}`;
+        }
+        const diag = new vscode.Diagnostic(range, message, severityToVscode(item.severity));
         diag.code = item.code;
         diag.source = 'goplus';
         if (item.hint) {
@@ -94,9 +107,11 @@ function getCwd(document) {
 function execGoplus(args, cwd) {
     const binary = getGoplusBinary();
     return new Promise((resolve, reject) => {
-        cp.execFile(binary, args, { cwd, timeout: 30000 }, (err, stdout, stderr) => {
-            // goplus may exit with non-zero for diagnostics, which is expected.
-            const output = (stdout || '') + (stderr || '');
+        cp.execFile(binary, args, { cwd, timeout: 30000, maxBuffer: 1024 * 1024 * 5 }, (err, stdout, stderr) => {
+            if (err && err.code === 'ENOENT') {
+                return reject(new Error(`GoPlus binary not found: ${binary}`));
+            }
+            const output = (stdout || '') + '\n' + (stderr || '');
             resolve(output);
         });
     });

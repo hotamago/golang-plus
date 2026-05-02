@@ -53,15 +53,25 @@ export class GoplusHoverProvider implements vscode.HoverProvider {
             }
         }
 
-        const pattern = new RegExp(`^\\s*(?:fn(?:\\s+mut)?|struct|enum|type|const|var)\\s+${word}\\b`);
+        const pattern = new RegExp(`^\\s*(?:fn(?:\\s+mut)?|struct|enum|type|const|var|let)\\s+${word}\\b`);
         const methodPattern = new RegExp(`^\\s*fn(?:\\s+mut)?\\s+${word}\\b`);
 
         for (const doc of docs) {
             for (let i = 0; i < doc.lineCount; i++) {
                 const text = doc.lineAt(i).text;
                 if (pattern.test(text) || methodPattern.test(text)) {
-                    // Found a definition! Extract the signature
-                    const signature = text.trim().replace(/ \{$/, '');
+                    // Found a definition! Extract the signature, possibly spanning multiple lines
+                    let signature = text.trim();
+                    let currentLine = i;
+                    // If it's a block definition, read until '{' or we read too many lines
+                    if (signature.startsWith('fn') || signature.startsWith('struct') || signature.startsWith('enum')) {
+                        while (!signature.includes('{') && currentLine < doc.lineCount - 1 && currentLine - i < 10) {
+                            currentLine++;
+                            const nextLine = doc.lineAt(currentLine).text.trim();
+                            signature += '\n' + nextLine;
+                        }
+                        signature = signature.replace(/\s*\{$/, '');
+                    }
                     
                     // Look for preceding comments
                     const comments: string[] = [];
@@ -205,6 +215,59 @@ export class GoplusHoverProvider implements vscode.HoverProvider {
             md.appendMarkdown('### `impl` — Method Implementation Block\n\n');
             md.appendMarkdown('Groups methods for a struct or enum type.\n\n');
             md.appendMarkdown('```gp\nimpl User {\n    fn Greet(self) -> string {\n        return "Hi, " + self.Name\n    }\n}\n```');
+            return new vscode.Hover(md);
+        }
+
+        // mut keyword
+        if (word === 'mut') {
+            const md = new vscode.MarkdownString();
+            md.appendMarkdown('### `mut` — Mutable Keyword\n\n');
+            md.appendMarkdown('Indicates that a variable or receiver can be mutated.\n\n');
+            md.appendMarkdown('```gp\nfn modify(mut self) {\n    self.Count += 1\n}\n```');
+            return new vscode.Hover(md);
+        }
+
+        // let keyword
+        if (word === 'let') {
+            const md = new vscode.MarkdownString();
+            md.appendMarkdown('### `let` — Variable Declaration\n\n');
+            md.appendMarkdown('Declares a variable. Currently compiled to `var` in Go.\n\n');
+            md.appendMarkdown('```gp\nlet a = 1\n```');
+            return new vscode.Hover(md);
+        }
+
+        // const keyword
+        if (word === 'const') {
+            const md = new vscode.MarkdownString();
+            md.appendMarkdown('### `const` — Constant Declaration\n\n');
+            md.appendMarkdown('Declares a compile-time constant.\n\n');
+            md.appendMarkdown('```gp\nconst PI = 3.14\n```');
+            return new vscode.Hover(md);
+        }
+
+        // package keyword
+        if (word === 'package') {
+            const md = new vscode.MarkdownString();
+            md.appendMarkdown('### `package` — Package Declaration\n\n');
+            md.appendMarkdown('Defines the package name for the current file.\n\n');
+            md.appendMarkdown('```gp\npackage main\n```');
+            return new vscode.Hover(md);
+        }
+
+        // import keyword
+        if (word === 'import') {
+            const md = new vscode.MarkdownString();
+            md.appendMarkdown('### `import` — Import Declaration\n\n');
+            md.appendMarkdown('Imports a package to use its exported identifiers.\n\n');
+            md.appendMarkdown('```gp\nimport "fmt"\nimport mypkg "github.com/user/pkg"\n```');
+            return new vscode.Hover(md);
+        }
+
+        // return keyword
+        if (word === 'return') {
+            const md = new vscode.MarkdownString();
+            md.appendMarkdown('### `return` — Return Statement\n\n');
+            md.appendMarkdown('Returns from the current function.\n\n');
             return new vscode.Hover(md);
         }
 
