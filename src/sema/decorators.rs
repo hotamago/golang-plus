@@ -198,8 +198,9 @@ fn validate_next_type_shape(
 
     // Check return type shape
     let decorated_is_error = decorated_ret.is_error_capable();
-    let next_has_error = ret_part.contains("error");
-    let next_has_value = !ret_part.is_empty() && ret_part != "error";
+    let ret_clean = ret_part.strip_prefix("->").unwrap_or(&ret_part).trim();
+    let next_has_error = ret_clean.contains("error") || ret_clean.contains('!');
+    let next_has_value = !ret_clean.is_empty() && ret_clean != "error" && ret_clean != "!" && ret_clean != "(error)";
 
     match decorated_ret {
         ReturnType::Void => {
