@@ -34,6 +34,8 @@ impl<'a> GoGenerator<'a> {
             out.push_str(&self.emit_simple_enum_string_impl(enum_decl));
         }
 
+        out.push_str(&self.emit_enum_derives(enum_decl));
+
         out
     }
 
@@ -120,6 +122,8 @@ impl<'a> GoGenerator<'a> {
             out.push_str(&self.emit_tagged_enum_string_impl(enum_decl));
         }
 
+        out.push_str(&self.emit_enum_derives(enum_decl));
+
         out.trim_end().to_string()
     }
 
@@ -160,7 +164,7 @@ impl<'a> GoGenerator<'a> {
                     .collect::<Vec<_>>()
                     .join(", ");
                 out.push_str(&format!(
-                    "\t\treturn {}.Sprintf(\"{}({})\"{})\n",
+                    "\t\treturn {}.Sprintf(\"{}({})\"{})\\n",
                     fmt_name, variant.name, placeholders, fmt_args
                 ));
             }

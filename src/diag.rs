@@ -2,12 +2,38 @@ use std::fmt;
 
 use crate::ast::Span;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DiagnosticSeverity {
+    Error,
+    Warning,
+    Info,
+    Hint,
+}
+
+impl DiagnosticSeverity {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Error => "error",
+            Self::Warning => "warning",
+            Self::Info => "info",
+            Self::Hint => "hint",
+        }
+    }
+}
+
+impl fmt::Display for DiagnosticSeverity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Diagnostic {
     pub code: String,
     pub message: String,
     pub span: Option<Span>,
     pub hint: Option<String>,
+    pub severity: DiagnosticSeverity,
 }
 
 impl Diagnostic {
@@ -17,6 +43,17 @@ impl Diagnostic {
             message: message.into(),
             span,
             hint: None,
+            severity: DiagnosticSeverity::Error,
+        }
+    }
+
+    pub fn warning(message: impl Into<String>, span: Option<Span>) -> Self {
+        Self {
+            code: "W0000".to_string(),
+            message: message.into(),
+            span,
+            hint: None,
+            severity: DiagnosticSeverity::Warning,
         }
     }
 
@@ -30,11 +67,19 @@ impl Diagnostic {
         self
     }
 
+    pub fn with_severity(mut self, severity: DiagnosticSeverity) -> Self {
+        self.severity = severity;
+        self
+    }
+
     pub fn render(&self, path: &str, source: &str) -> String {
         match &self.span {
             Some(span) => {
                 let (line, col) = line_col(source, span.start);
-                let mut out = format!("{path}:{line}:{col}: {}: {}", self.code, self.message);
+                let mut out = format!(
+                    "{path}:{line}:{col}: {} {}: {}",
+                    self.severity, self.code, self.message
+                );
                 if let Some(line_text) = source_line(source, line) {
                     out.push('\n');
                     out.push_str(line_text);
@@ -49,8 +94,14 @@ impl Diagnostic {
                 out
             }
             None => match &self.hint {
-                Some(hint) => format!("{path}: {}: {} (hint: {hint})", self.code, self.message),
-                None => format!("{path}: {}: {}", self.code, self.message),
+                Some(hint) => format!(
+                    "{path}: {} {}: {} (hint: {hint})",
+                    self.severity, self.code, self.message
+                ),
+                None => format!(
+                    "{path}: {} {}: {}",
+                    self.severity, self.code, self.message
+                ),
             },
         }
     }
@@ -61,13 +112,18 @@ impl Diagnostic {
             .as_ref()
             .map(|span| line_col(source, span.start))
             .unwrap_or((0, 0));
+        let (end_line, end_column) = self
+            .span
+            .as_ref()
+            .map(|span| line_col(source, span.end))
+            .unwrap_or((0, 0));
         let span = self
             .span
             .as_ref()
             .map(|span| {
                 format!(
-                    r#"{{"start":{},"end":{},"line":{},"column":{}}}"#,
-                    span.start, span.end, line, column
+                    r#"{{"start":{},"end":{},"line":{},"column":{},"endLine":{},"endColumn":{}}}"#,
+                    span.start, span.end, line, column, end_line, end_column
                 )
             })
             .unwrap_or_else(|| "null".to_string());
@@ -77,9 +133,10 @@ impl Diagnostic {
             .map(|hint| format!(r#""{}""#, json_escape(hint)))
             .unwrap_or_else(|| "null".to_string());
         format!(
-            r#"{{"path":"{}","code":"{}","message":"{}","span":{},"hint":{}}}"#,
+            r#"{{"path":"{}","code":"{}","severity":"{}","message":"{}","span":{},"hint":{},"source":"goplus"}}"#,
             json_escape(path),
             json_escape(&self.code),
+            self.severity.as_str(),
             json_escape(&self.message),
             span,
             hint
@@ -106,6 +163,10 @@ impl Diagnostics {
     }
 
     pub fn has_errors(&self) -> bool {
+        self.items.iter().any(|d| d.severity == DiagnosticSeverity::Error)
+    }
+
+    pub fn has_any(&self) -> bool {
         !self.items.is_empty()
     }
 
@@ -158,7 +219,7 @@ fn span_len(source: &str, span: &Span) -> usize {
         .count()
 }
 
-fn json_escape(input: &str) -> String {
+pub fn json_escape(input: &str) -> String {
     let mut out = String::new();
     for ch in input.chars() {
         match ch {

@@ -42,6 +42,25 @@ enum Command {
         source: PathBuf,
         #[arg(long)]
         check: bool,
+        #[arg(long)]
+        stdout: bool,
+    },
+    Lint {
+        source: PathBuf,
+        #[arg(long, value_enum, default_value_t = DiagnosticFormatArg::Human)]
+        diagnostic_format: DiagnosticFormatArg,
+    },
+    Navigate {
+        #[arg(long)]
+        source_map: PathBuf,
+        #[arg(long)]
+        file: String,
+        #[arg(long)]
+        line: usize,
+        #[arg(long)]
+        column: usize,
+        #[arg(long)]
+        reverse: bool,
     },
 }
 
@@ -78,11 +97,29 @@ fn main() -> anyhow::Result<()> {
             out,
         } => compiler::build_file(&source, &out_dir, out.as_deref()),
         Command::Run { source, out_dir } => compiler::run_file(&source, &out_dir),
-        Command::Fmt { source, check } => {
-            if !check {
-                anyhow::bail!("`goplus fmt` currently supports only `--check`")
+        Command::Fmt {
+            source,
+            check,
+            stdout,
+        } => {
+            if check {
+                compiler::fmt_check_file(&source)
+            } else if stdout {
+                compiler::fmt_file_stdout(&source)
+            } else {
+                compiler::fmt_file(&source)
             }
-            compiler::fmt_check_file(&source)
         }
+        Command::Lint {
+            source,
+            diagnostic_format,
+        } => compiler::lint_file_with_format(&source, diagnostic_format.into()),
+        Command::Navigate {
+            source_map,
+            file,
+            line,
+            column,
+            reverse,
+        } => compiler::navigate_source_map(&source_map, &file, line, column, reverse),
     }
 }

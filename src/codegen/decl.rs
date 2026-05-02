@@ -23,6 +23,8 @@ impl<'a> GoGenerator<'a> {
             out.push_str(&self.emit_struct_string_impl(struct_decl));
         }
 
+        out.push_str(&self.emit_struct_derives(struct_decl));
+
         out
     }
 

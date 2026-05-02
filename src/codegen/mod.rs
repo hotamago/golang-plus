@@ -53,8 +53,10 @@ impl<'a> GoGenerator<'a> {
 
 mod decl;
 mod decorators;
+mod derives;
 mod enums;
 mod expr;
+pub mod fmt;
 mod program;
 mod stmt;
 mod types;

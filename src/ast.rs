@@ -284,6 +284,10 @@ pub struct Decorator {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DeriveKind {
     String,
+    Debug,
+    Equal,
+    JsonMarshal,
+    JsonUnmarshal,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

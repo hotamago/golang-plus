@@ -10,18 +10,39 @@ impl<'a> Parser<'a> {
                         format!("unsupported annotation `@{}` on type declaration", ann.name),
                         Some(ann.span.clone()),
                     )
-                    .with_hint("only `@derive(String)` is supported on structs/enums"),
+                    .with_hint("only `@derive(...)` is supported on structs/enums"),
                 );
                 continue;
             }
-            if ann.args.len() != 1 || ann.args[0].trim() != "String" {
+            if ann.args.is_empty() {
                 self.diagnostics.push(
-                    Diagnostic::new("unsupported derive target", Some(ann.span.clone()))
-                        .with_hint("goplus v1 supports only `@derive(String)`"),
+                    Diagnostic::new("@derive requires at least one target", Some(ann.span.clone()))
+                        .with_hint("example: @derive(String), @derive(Debug, Equal)"),
                 );
                 continue;
             }
-            derives.push(DeriveKind::String);
+            for arg in &ann.args {
+                match arg.trim() {
+                    "String" => derives.push(DeriveKind::String),
+                    "Debug" => derives.push(DeriveKind::Debug),
+                    "Equal" => derives.push(DeriveKind::Equal),
+                    "JSON" => {
+                        derives.push(DeriveKind::JsonMarshal);
+                        derives.push(DeriveKind::JsonUnmarshal);
+                    }
+                    "JsonMarshal" => derives.push(DeriveKind::JsonMarshal),
+                    "JsonUnmarshal" => derives.push(DeriveKind::JsonUnmarshal),
+                    other => {
+                        self.diagnostics.push(
+                            Diagnostic::new(
+                                format!("unsupported derive target `{other}`"),
+                                Some(ann.span.clone()),
+                            )
+                            .with_hint("supported: String, Debug, Equal, JSON, JsonMarshal, JsonUnmarshal"),
+                        );
+                    }
+                }
+            }
         }
         derives
     }

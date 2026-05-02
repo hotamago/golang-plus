@@ -1,3 +1,4 @@
+use std::collections::{HashMap, BTreeSet, VecDeque};
 use super::*;
 
 pub(super) fn transpile_module_projects(
@@ -16,37 +17,66 @@ pub(super) fn transpile_module_projects(
     copy_go_module_metadata(module_root, module_out_root)?;
     copy_go_files_recursive(module_root, module_out_root, module_out_root)?;
 
-    let mut queue = VecDeque::from([entry_project.source_dir.clone()]);
-    let mut visited = BTreeSet::new();
+    // Discover all packages in the module
+    let all_packages = discover_all_packages(module_root)?;
+    
+    // Build dependency graph
+    let mut graph = HashMap::new();
+    let mut in_degree = HashMap::new();
+    let mut package_projects = HashMap::new();
 
-    while let Some(source_dir) = queue.pop_front() {
-        if !visited.insert(source_dir.clone()) {
-            continue;
+    for pkg in &all_packages {
+        graph.insert(pkg.clone(), Vec::new());
+        in_degree.insert(pkg.clone(), 0);
+    }
+
+    // Load all projects and collect dependencies
+    for pkg_dir in &all_packages {
+        let (project, model) = if pkg_dir == &entry_project.source_dir {
+            (entry_project.clone(), entry_model.clone())
+        } else {
+            load_analyzed_project(pkg_dir)?
+        };
+
+        let deps = collect_local_gp_import_dirs(&project, module_root, module_name)?;
+        for dep in deps {
+            if all_packages.contains(&dep) {
+                graph.get_mut(&dep).unwrap().push(pkg_dir.clone());
+                *in_degree.get_mut(pkg_dir).unwrap() += 1;
+            }
         }
+        package_projects.insert(pkg_dir.clone(), (project, model));
+    }
 
-        if source_dir == entry_project.source_dir {
-            let rel_package_dir = source_dir.strip_prefix(module_root).with_context(|| {
-                format!(
-                    "failed to resolve package path {} inside module {}",
-                    source_dir.display(),
-                    module_root.display()
-                )
-            })?;
-            let package_dir = if rel_package_dir.as_os_str().is_empty() {
-                module_out_root.to_path_buf()
-            } else {
-                module_out_root.join(rel_package_dir)
-            };
-            emit_project_package(entry_project, entry_model, &package_dir, false)?;
+    // Topological sort (Kahn's algorithm)
+    let mut queue: VecDeque<PathBuf> = in_degree
+        .iter()
+        .filter(|(_, v)| **v == 0)
+        .map(|(path, _)| path.clone())
+        .collect();
 
-            for import_dir in collect_local_gp_import_dirs(entry_project, module_root, module_name)?
-            {
-                if !visited.contains(&import_dir) {
-                    queue.push_back(import_dir);
+    let mut sorted_packages = Vec::new();
+    while let Some(node) = queue.pop_front() {
+        sorted_packages.push(node.clone());
+        if let Some(neighbors) = graph.get(&node) {
+            for neighbor in neighbors {
+                if let Some(deg) = in_degree.get_mut(neighbor) {
+                    *deg -= 1;
+                    if *deg == 0 {
+                        queue.push_back(neighbor.clone());
+                    }
                 }
             }
-        } else {
-            let (project, model) = load_analyzed_project(&source_dir)?;
+        }
+    }
+
+    if sorted_packages.len() != all_packages.len() {
+        bail!("circular dependency detected among local packages");
+    }
+
+    // Transpile in topological order
+    for source_dir in sorted_packages {
+        if let Some((project, model)) = package_projects.remove(&source_dir) {
             let rel_package_dir = source_dir.strip_prefix(module_root).with_context(|| {
                 format!(
                     "failed to resolve package path {} inside module {}",
@@ -60,12 +90,6 @@ pub(super) fn transpile_module_projects(
                 module_out_root.join(rel_package_dir)
             };
             emit_project_package(&project, &model, &package_dir, false)?;
-
-            for import_dir in collect_local_gp_import_dirs(&project, module_root, module_name)? {
-                if !visited.contains(&import_dir) {
-                    queue.push_back(import_dir);
-                }
-            }
         }
     }
 

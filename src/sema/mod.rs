@@ -3,6 +3,7 @@ use std::collections::{BTreeSet, HashMap};
 use crate::{ast::*, diag::Diagnostic};
 
 mod decorators;
+pub mod lint;
 mod matches;
 mod model;
 mod types;

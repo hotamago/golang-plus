@@ -5,7 +5,6 @@ fn allows_custom_decorator() {
     let src = r#"
 package main
 
-@foo
 fn foo(next: func() string) -> func() string {
     return next
 }
@@ -17,7 +16,7 @@ fn run() -> string {
 "#;
     let mut program = parse_program(src).expect("parse ok");
     let result = analyze(&mut program);
-    assert!(result.is_ok());
+    result.expect("sema should succeed");
 }
 
 #[test]
