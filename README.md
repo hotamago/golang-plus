@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="GoPlus Logo" width="200" />
+</p>
+
 # goplus
 
 `goplus` is a surface language for Go, implemented as a Rust transpiler (`*.gp -> *.go`).
