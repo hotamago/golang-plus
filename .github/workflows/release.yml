@@ -71,7 +71,9 @@ jobs:
         with:
           tool: cargo-wix
       - name: Build MSI
-        run: cargo wix --nocapture
+        run: |
+          cargo wix init
+          cargo wix --nocapture
       - name: Upload MSI Artifact
         uses: actions/upload-artifact@v4
         with:
