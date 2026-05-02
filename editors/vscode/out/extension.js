@@ -85,7 +85,8 @@ function activate(context) {
     context.subscriptions.push(vscode.languages.registerDocumentSymbolProvider(GP_SELECTOR, new symbols_1.GoplusDocumentSymbolProvider()));
     // --- Completion Provider ---
     context.subscriptions.push(vscode.languages.registerCompletionItemProvider(GP_SELECTOR, new completion_1.GoplusCompletionProvider(), '@', // trigger for decorators
-    '(' // trigger for derive kinds
+    '(', // trigger for derive kinds
+    ':' // trigger for enum variants (::)
     ));
     // --- Commands ---
     context.subscriptions.push(vscode.commands.registerCommand('goplus.checkFile', async () => {

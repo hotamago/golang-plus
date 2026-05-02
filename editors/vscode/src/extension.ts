@@ -91,7 +91,8 @@ export function activate(context: vscode.ExtensionContext): void {
             GP_SELECTOR,
             new GoplusCompletionProvider(),
             '@', // trigger for decorators
-            '('  // trigger for derive kinds
+            '(', // trigger for derive kinds
+            ':'  // trigger for enum variants (::)
         )
     );
 
