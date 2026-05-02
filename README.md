@@ -140,6 +140,34 @@ fn load(path: string) -> string! {
 }
 ```
 
+## VSCode Extension
+
+GoPlus provides a native-like development experience in VSCode, powered by the `goplus` CLI.
+
+### Features
+- **Diagnostics**: Real-time error reporting with severity levels, precise spans, and hints.
+- **Hover Information**: Documentation and signatures for keywords, variables, parameters, and decorators.
+- **Auto-completion**: Suggestions for keywords, built-in decorators, enum variants, and derive options.
+- **Formatting**: Automatic code formatting using `goplus fmt`.
+- **Linting**: Code quality checks using `goplus lint`.
+- **Go to Definition**: Bidirectional source navigation (`.gp` ↔ `.go`) powered by source maps.
+- **Snippets**: Quick templates for `fn`, `struct`, `enum`, and decorators.
+
+### Installation
+
+The extension requires the `goplus` CLI to be available in your system `$PATH` (or `%PATH%` on Windows).
+
+1. **Install CLI**:
+   Ensure you have the latest `goplus` CLI installed globally:
+   ```bash
+   cargo install --path .
+   ```
+
+2. **Install Extension**:
+   - Navigate to the `editors/vscode` directory.
+   - Run `npm install` and `npm run package` (requires `vsce`) to build the extension, or use the pre-built `.vsix` file in the directory.
+   - Install the generated `.vsix` file in VSCode (`Extensions: Install from VSIX...` from the command palette).
+
 ## Roadmap
 
 See [ROADMAP.md](ROADMAP.md) for the detailed source of truth.
