@@ -1,0 +1,175 @@
+{
+  "Function Declaration": {
+    "prefix": "fn",
+    "body": [
+      "fn ${1:name}(${2:params}) -> ${3:ReturnType} {",
+      "\t$0",
+      "}"
+    ],
+    "description": "GoPlus function declaration"
+  },
+  "Function with Error Return": {
+    "prefix": "fne",
+    "body": [
+      "fn ${1:name}(${2:params}) -> ${3:ReturnType}! {",
+      "\t$0",
+      "}"
+    ],
+    "description": "GoPlus function with error return type (T!)"
+  },
+  "Main Function": {
+    "prefix": "main",
+    "body": [
+      "fn main() -> ! {",
+      "\t$0",
+      "\treturn",
+      "}"
+    ],
+    "description": "GoPlus main function with error return"
+  },
+  "Struct Declaration": {
+    "prefix": "struct",
+    "body": [
+      "struct ${1:Name} {",
+      "\t${2:Field}: ${3:Type}",
+      "}"
+    ],
+    "description": "GoPlus struct declaration"
+  },
+  "Enum Declaration": {
+    "prefix": "enum",
+    "body": [
+      "enum ${1:Name} {",
+      "\t${2:Variant}",
+      "}"
+    ],
+    "description": "GoPlus enum declaration"
+  },
+  "Tagged Enum": {
+    "prefix": "enump",
+    "body": [
+      "enum ${1:Name} {",
+      "\t${2:Variant}(${3:Type})",
+      "}"
+    ],
+    "description": "GoPlus tagged enum with payload variants"
+  },
+  "Generic Enum": {
+    "prefix": "enumg",
+    "body": [
+      "enum ${1:Name}<${2:T}> {",
+      "\t${3:Ok}(${2:T})",
+      "\t${4:Err}(string)",
+      "}"
+    ],
+    "description": "GoPlus generic tagged enum"
+  },
+  "Match Expression": {
+    "prefix": "match",
+    "body": [
+      "match ${1:value} {",
+      "\t${2:Pattern} => ${3:expr},",
+      "}"
+    ],
+    "description": "GoPlus match expression"
+  },
+  "Impl Block": {
+    "prefix": "impl",
+    "body": [
+      "impl ${1:Type} {",
+      "\tfn ${2:method}(self) -> ${3:ReturnType} {",
+      "\t\t$0",
+      "\t}",
+      "}"
+    ],
+    "description": "GoPlus impl block with a method"
+  },
+  "Derive Decorator": {
+    "prefix": "derive",
+    "body": [
+      "@derive(${1|String,Debug,Equal,JsonMarshal,JsonUnmarshal|})"
+    ],
+    "description": "GoPlus @derive decorator"
+  },
+  "Log Decorator": {
+    "prefix": "@log",
+    "body": [
+      "@log"
+    ],
+    "description": "GoPlus @log decorator — auto-logs function entry/exit"
+  },
+  "Retry Decorator": {
+    "prefix": "@retry",
+    "body": [
+      "@retry(${1:3}, ${2:100})"
+    ],
+    "description": "GoPlus @retry decorator — retries on error"
+  },
+  "Memoize Decorator": {
+    "prefix": "@memoize",
+    "body": [
+      "@memoize"
+    ],
+    "description": "GoPlus @memoize decorator — caches results by arguments"
+  },
+  "Error Check (Try)": {
+    "prefix": "iferr",
+    "body": [
+      "${1:val} := ${2:expr}?"
+    ],
+    "description": "GoPlus error propagation with try operator (?)"
+  },
+  "Import Single": {
+    "prefix": "import",
+    "body": [
+      "import \"${1:package}\""
+    ],
+    "description": "GoPlus single import"
+  },
+  "Import Group": {
+    "prefix": "importg",
+    "body": [
+      "import (",
+      "\t\"${1:package}\"",
+      ")"
+    ],
+    "description": "GoPlus grouped import"
+  },
+  "If Statement": {
+    "prefix": "if",
+    "body": [
+      "if ${1:condition} {",
+      "\t$0",
+      "}"
+    ],
+    "description": "GoPlus if statement"
+  },
+  "For Loop": {
+    "prefix": "for",
+    "body": [
+      "for ${1:condition} {",
+      "\t$0",
+      "}"
+    ],
+    "description": "GoPlus for loop"
+  },
+  "Defer": {
+    "prefix": "defer",
+    "body": [
+      "defer ${1:expr}"
+    ],
+    "description": "GoPlus defer statement"
+  },
+  "Custom Decorator Function": {
+    "prefix": "decfn",
+    "body": [
+      "fn ${1:decoratorName}(next: func(${2:params}) (${3:returns}), ${4:args}) -> func(${2:params}) (${3:returns}) {",
+      "\treturn func(${2:params}) (${3:returns}) {",
+      "\t\t$0",
+      "\t\treturn next(${5:callArgs})",
+      "\t}",
+      "}"
+    ],
+    "description": "GoPlus custom decorator function template"
+  }
+}

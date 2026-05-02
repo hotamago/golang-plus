@@ -1,0 +1,338 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "GoPlus",
+  "scopeName": "source.goplus",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#decorators" },
+    { "include": "#keywords" },
+    { "include": "#declarations" },
+    { "include": "#operators" },
+    { "include": "#enum-variants" },
+    { "include": "#types" },
+    { "include": "#numbers" },
+    { "include": "#function-calls" },
+    { "include": "#punctuation" },
+    { "include": "#identifiers" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.block.goplus",
+          "begin": "/\\*",
+          "end": "\\*/",
+          "captures": {
+            "0": { "name": "punctuation.definition.comment.goplus" }
+          }
+        },
+        {
+          "name": "comment.line.double-slash.goplus",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.goplus",
+          "begin": "\"",
+          "end": "\"",
+          "beginCaptures": {
+            "0": { "name": "punctuation.definition.string.begin.goplus" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.string.end.goplus" }
+          },
+          "patterns": [
+            {
+              "name": "constant.character.escape.goplus",
+              "match": "\\\\(?:[\"\\\\nrt0abfv]|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})"
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.raw.goplus",
+          "begin": "`",
+          "end": "`",
+          "beginCaptures": {
+            "0": { "name": "punctuation.definition.string.begin.goplus" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.string.end.goplus" }
+          }
+        }
+      ]
+    },
+    "decorators": {
+      "patterns": [
+        {
+          "name": "meta.decorator.derive.goplus",
+          "match": "(@)(derive)\\s*\\(([^)]+)\\)",
+          "captures": {
+            "1": { "name": "punctuation.decorator.goplus" },
+            "2": { "name": "entity.name.tag.decorator.goplus" },
+            "3": { "name": "support.type.derive.goplus" }
+          }
+        },
+        {
+          "name": "meta.decorator.goplus",
+          "match": "(@)([a-zA-Z_][a-zA-Z0-9_]*)(?:\\s*\\(([^)]*)\\))?",
+          "captures": {
+            "1": { "name": "punctuation.decorator.goplus" },
+            "2": { "name": "entity.name.tag.decorator.goplus" },
+            "3": { "name": "variable.parameter.decorator.goplus" }
+          }
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.goplus",
+          "match": "\\b(return|if|else|for|match|switch|select|defer|go|continue|break|fallthrough)\\b"
+        },
+        {
+          "name": "keyword.declaration.goplus",
+          "match": "\\b(package|import|const|var|type|mut)\\b"
+        },
+        {
+          "name": "keyword.declaration.function.goplus",
+          "match": "\\b(fn)\\b"
+        },
+        {
+          "name": "keyword.declaration.struct.goplus",
+          "match": "\\b(struct)\\b"
+        },
+        {
+          "name": "keyword.declaration.enum.goplus",
+          "match": "\\b(enum)\\b"
+        },
+        {
+          "name": "keyword.declaration.impl.goplus",
+          "match": "\\b(impl)\\b"
+        },
+        {
+          "name": "variable.language.self.goplus",
+          "match": "\\b(self)\\b"
+        },
+        {
+          "name": "constant.language.goplus",
+          "match": "\\b(true|false|nil|iota)\\b"
+        },
+        {
+          "name": "keyword.function.builtin.goplus",
+          "match": "\\b(make|len|cap|append|copy|delete|close|new|panic|recover|print|println|error|complex|real|imag)\\b"
+        }
+      ]
+    },
+    "declarations": {
+      "patterns": [
+        {
+          "comment": "Function declaration: fn name",
+          "match": "\\b(fn)\\s+(mut\\s+)?([a-zA-Z_][a-zA-Z0-9_]*)",
+          "captures": {
+            "1": { "name": "keyword.declaration.function.goplus" },
+            "2": { "name": "storage.modifier.mut.goplus" },
+            "3": { "name": "entity.name.function.goplus" }
+          }
+        },
+        {
+          "comment": "Struct declaration: struct Name",
+          "match": "\\b(struct)\\s+([A-Z][a-zA-Z0-9_]*)",
+          "captures": {
+            "1": { "name": "keyword.declaration.struct.goplus" },
+            "2": { "name": "entity.name.type.struct.goplus" }
+          }
+        },
+        {
+          "comment": "Enum declaration: enum Name or enum Name<T>",
+          "match": "\\b(enum)\\s+([A-Z][a-zA-Z0-9_]*)",
+          "captures": {
+            "1": { "name": "keyword.declaration.enum.goplus" },
+            "2": { "name": "entity.name.type.enum.goplus" }
+          }
+        },
+        {
+          "comment": "Impl block: impl Name",
+          "match": "\\b(impl)\\s+([A-Z][a-zA-Z0-9_]*)",
+          "captures": {
+            "1": { "name": "keyword.declaration.impl.goplus" },
+            "2": { "name": "entity.name.type.impl.goplus" }
+          }
+        },
+        {
+          "comment": "Package declaration: package name",
+          "match": "\\b(package)\\s+([a-zA-Z_][a-zA-Z0-9_]*)",
+          "captures": {
+            "1": { "name": "keyword.declaration.goplus" },
+            "2": { "name": "entity.name.namespace.goplus" }
+          }
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.arrow.goplus",
+          "match": "->"
+        },
+        {
+          "name": "keyword.operator.fat-arrow.goplus",
+          "match": "=>"
+        },
+        {
+          "name": "keyword.operator.namespace.goplus",
+          "match": "::"
+        },
+        {
+          "name": "keyword.operator.walrus.goplus",
+          "match": ":="
+        },
+        {
+          "name": "keyword.operator.error-return.goplus",
+          "match": "!(?=[\\s,\\)\\}]|$)"
+        },
+        {
+          "name": "keyword.operator.try.goplus",
+          "match": "\\?(?=[\\s,;\\)\\}]|$)"
+        },
+        {
+          "name": "keyword.operator.comparison.goplus",
+          "match": "==|!=|<=|>=|<|>"
+        },
+        {
+          "name": "keyword.operator.logical.goplus",
+          "match": "&&|\\|\\||!"
+        },
+        {
+          "name": "keyword.operator.assignment.goplus",
+          "match": "\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=|<<=|>>=|="
+        },
+        {
+          "name": "keyword.operator.arithmetic.goplus",
+          "match": "\\+|-|\\*|/|%|&|\\||\\^|<<|>>"
+        }
+      ]
+    },
+    "enum-variants": {
+      "patterns": [
+        {
+          "comment": "Enum variant: EnumName::Variant",
+          "match": "([A-Z][a-zA-Z0-9_]*)(::)([A-Z][a-zA-Z0-9_]*)",
+          "captures": {
+            "1": { "name": "entity.name.type.enum.goplus" },
+            "2": { "name": "keyword.operator.namespace.goplus" },
+            "3": { "name": "constant.other.enum-variant.goplus" }
+          }
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "storage.type.builtin.goplus",
+          "match": "\\b(string|int|int8|int16|int32|int64|uint|uint8|uint16|uint32|uint64|float32|float64|complex64|complex128|byte|rune|bool|error|uintptr|any|interface)\\b"
+        },
+        {
+          "name": "storage.type.goplus",
+          "match": "\\bfunc\\b"
+        },
+        {
+          "comment": "PascalCase type reference",
+          "match": "(?<=:\\s*)([A-Z][a-zA-Z0-9_]*)(?=\\s|\\)|,|\\{|$)",
+          "captures": {
+            "1": { "name": "entity.name.type.goplus" }
+          }
+        },
+        {
+          "comment": "Type after arrow ->",
+          "match": "(?<=->\\s*)([A-Z][a-zA-Z0-9_]*)(?=!|\\s|\\{|$)",
+          "captures": {
+            "1": { "name": "entity.name.type.goplus" }
+          }
+        },
+        {
+          "comment": "Pointer type *Type",
+          "match": "(\\*)([A-Z][a-zA-Z0-9_]*(?:\\.[A-Z][a-zA-Z0-9_]*)*)",
+          "captures": {
+            "1": { "name": "keyword.operator.goplus" },
+            "2": { "name": "entity.name.type.goplus" }
+          }
+        },
+        {
+          "comment": "Generic type parameters: <T, U>",
+          "match": "<([A-Z][a-zA-Z0-9_]*(?:\\s*,\\s*[A-Z][a-zA-Z0-9_]*)*)>",
+          "captures": {
+            "1": { "name": "entity.name.type.parameter.goplus" }
+          }
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.hex.goplus",
+          "match": "\\b0[xX][0-9a-fA-F_]+\\b"
+        },
+        {
+          "name": "constant.numeric.octal.goplus",
+          "match": "\\b0[oO][0-7_]+\\b"
+        },
+        {
+          "name": "constant.numeric.binary.goplus",
+          "match": "\\b0[bB][01_]+\\b"
+        },
+        {
+          "name": "constant.numeric.float.goplus",
+          "match": "\\b[0-9][0-9_]*\\.[0-9_]+(?:[eE][+-]?[0-9_]+)?\\b"
+        },
+        {
+          "name": "constant.numeric.integer.goplus",
+          "match": "\\b[0-9][0-9_]*\\b"
+        }
+      ]
+    },
+    "function-calls": {
+      "patterns": [
+        {
+          "comment": "Method or function call: name(",
+          "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\\s*\\()",
+          "captures": {
+            "1": { "name": "entity.name.function.call.goplus" }
+          }
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.separator.colon.goplus",
+          "match": "(?<!:):(?!:)"
+        },
+        {
+          "name": "punctuation.separator.comma.goplus",
+          "match": ","
+        },
+        {
+          "name": "punctuation.terminator.semicolon.goplus",
+          "match": ";"
+        },
+        {
+          "name": "punctuation.accessor.dot.goplus",
+          "match": "\\."
+        }
+      ]
+    },
+    "identifiers": {
+      "patterns": [
+        {
+          "comment": "Wildcard pattern in match arms",
+          "match": "(?<=^\\s*)_(?=\\s*=>)",
+          "name": "variable.language.wildcard.goplus"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,155 @@
+import * as vscode from 'vscode';
+import { runAllDiagnostics, runCheck, runLint } from './diagnostics';
+import { GoplusFormattingProvider } from './formatter';
+import { GpToGoDefinitionProvider, GoToGpDefinitionProvider } from './navigation';
+import { GoplusHoverProvider } from './hover';
+
+const GP_SELECTOR: vscode.DocumentSelector = { language: 'goplus', scheme: 'file' };
+const GO_SELECTOR: vscode.DocumentSelector = { language: 'go', scheme: 'file' };
+
+let diagnosticCollection: vscode.DiagnosticCollection;
+
+export function activate(context: vscode.ExtensionContext): void {
+    console.log('GoPlus extension activated');
+
+    // --- Diagnostic collection ---
+    diagnosticCollection = vscode.languages.createDiagnosticCollection('goplus');
+    context.subscriptions.push(diagnosticCollection);
+
+    // --- Run diagnostics on save ---
+    context.subscriptions.push(
+        vscode.workspace.onDidSaveTextDocument(async (document) => {
+            if (document.languageId !== 'goplus') {
+                return;
+            }
+            await runAllDiagnostics(document, diagnosticCollection);
+        })
+    );
+
+    // --- Run diagnostics on open ---
+    context.subscriptions.push(
+        vscode.workspace.onDidOpenTextDocument(async (document) => {
+            if (document.languageId !== 'goplus') {
+                return;
+            }
+            await runAllDiagnostics(document, diagnosticCollection);
+        })
+    );
+
+    // --- Clear diagnostics on close ---
+    context.subscriptions.push(
+        vscode.workspace.onDidCloseTextDocument((document) => {
+            diagnosticCollection.delete(document.uri);
+        })
+    );
+
+    // --- Run diagnostics for already-open .gp files ---
+    for (const document of vscode.workspace.textDocuments) {
+        if (document.languageId === 'goplus') {
+            runAllDiagnostics(document, diagnosticCollection);
+        }
+    }
+
+    // --- Format provider ---
+    context.subscriptions.push(
+        vscode.languages.registerDocumentFormattingEditProvider(
+            GP_SELECTOR,
+            new GoplusFormattingProvider()
+        )
+    );
+
+    // --- Navigation providers ---
+    // .gp -> .go (Go to Definition navigates to generated Go)
+    context.subscriptions.push(
+        vscode.languages.registerDefinitionProvider(
+            GP_SELECTOR,
+            new GpToGoDefinitionProvider()
+        )
+    );
+
+    // .go -> .gp (Go to Definition navigates back to GoPlus source from generated Go)
+    context.subscriptions.push(
+        vscode.languages.registerDefinitionProvider(
+            GO_SELECTOR,
+            new GoToGpDefinitionProvider()
+        )
+    );
+
+    // --- Hover provider ---
+    context.subscriptions.push(
+        vscode.languages.registerHoverProvider(
+            GP_SELECTOR,
+            new GoplusHoverProvider()
+        )
+    );
+
+    // --- Commands ---
+    context.subscriptions.push(
+        vscode.commands.registerCommand('goplus.checkFile', async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || editor.document.languageId !== 'goplus') {
+                vscode.window.showWarningMessage('Open a .gp file to run GoPlus check.');
+                return;
+            }
+            const diags = await runCheck(editor.document);
+            diagnosticCollection.set(editor.document.uri, diags);
+            if (diags.length === 0) {
+                vscode.window.showInformationMessage('GoPlus check: no issues found.');
+            }
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('goplus.lintFile', async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || editor.document.languageId !== 'goplus') {
+                vscode.window.showWarningMessage('Open a .gp file to run GoPlus lint.');
+                return;
+            }
+            const diags = await runLint(editor.document);
+            diagnosticCollection.set(editor.document.uri, diags);
+            if (diags.length === 0) {
+                vscode.window.showInformationMessage('GoPlus lint: no warnings found.');
+            }
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('goplus.formatFile', async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || editor.document.languageId !== 'goplus') {
+                vscode.window.showWarningMessage('Open a .gp file to run GoPlus format.');
+                return;
+            }
+            await vscode.commands.executeCommand('editor.action.formatDocument');
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('goplus.navigateToGo', async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || editor.document.languageId !== 'goplus') {
+                vscode.window.showWarningMessage('Open a .gp file to navigate to generated Go.');
+                return;
+            }
+            await vscode.commands.executeCommand('editor.action.revealDefinition');
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('goplus.navigateToGp', async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) {
+                vscode.window.showWarningMessage('Open a generated Go file to navigate back to GoPlus source.');
+                return;
+            }
+            await vscode.commands.executeCommand('editor.action.revealDefinition');
+        })
+    );
+}
+
+export function deactivate(): void {
+    if (diagnosticCollection) {
+        diagnosticCollection.dispose();
+    }
+}

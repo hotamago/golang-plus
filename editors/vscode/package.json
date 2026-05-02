@@ -1,0 +1,128 @@
+{
+  "name": "goplus-lang",
+  "displayName": "GoPlus Language Support",
+  "description": "First-party VSCode extension for GoPlus (.gp) — syntax highlighting, diagnostics, formatting, navigation, and snippets.",
+  "version": "0.1.0",
+  "publisher": "xpath",
+  "license": "Apache-2.0",
+  "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hotamago/golang-plus"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Formatters",
+    "Snippets"
+  ],
+  "keywords": [
+    "goplus",
+    "gp",
+    "go",
+    "transpiler",
+    "enum",
+    "match",
+    "decorator"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/*.gp"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "goplus",
+        "aliases": [
+          "GoPlus",
+          "goplus",
+          "gp"
+        ],
+        "extensions": [
+          ".gp"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "goplus",
+        "scopeName": "source.goplus",
+        "path": "./syntaxes/goplus.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "goplus",
+        "path": "./snippets/goplus.json"
+      }
+    ],
+    "configuration": {
+      "title": "GoPlus",
+      "properties": {
+        "goplus.binaryPath": {
+          "type": "string",
+          "default": "goplus",
+          "description": "Path to the goplus binary. Defaults to 'goplus' on PATH."
+        },
+        "goplus.outDir": {
+          "type": "string",
+          "default": ".goplusgen",
+          "description": "Output directory for generated Go files and source maps."
+        },
+        "goplus.lintOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run goplus lint automatically when a .gp file is saved."
+        },
+        "goplus.checkOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run goplus check automatically when a .gp file is saved."
+        },
+        "goplus.formatOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run goplus fmt automatically when a .gp file is saved. Works alongside editor.formatOnSave."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "goplus.checkFile",
+        "title": "GoPlus: Check Current File"
+      },
+      {
+        "command": "goplus.lintFile",
+        "title": "GoPlus: Lint Current File"
+      },
+      {
+        "command": "goplus.formatFile",
+        "title": "GoPlus: Format Current File"
+      },
+      {
+        "command": "goplus.navigateToGo",
+        "title": "GoPlus: Navigate to Generated Go"
+      },
+      {
+        "command": "goplus.navigateToGp",
+        "title": "GoPlus: Navigate to GoPlus Source"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "prepackage": "npm run compile",
+    "package": "npx -y @vscode/vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}

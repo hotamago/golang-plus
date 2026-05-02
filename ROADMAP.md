@@ -69,15 +69,15 @@ the editor, leveraging all v2 tooling under the hood.
 
 | Task | Status | Acceptance Criteria |
 | --- | --- | --- |
-| Syntax highlighting | Planned | TextMate grammar provides keyword, type, string, comment, decorator, and enum-variant highlighting for `.gp` files. |
-| Inline diagnostics | Planned | Errors and warnings from `goplus check` and `goplus lint` render as squiggly underlines with severity, code, and hint. |
-| Lint on save | Planned | `goplus lint` runs automatically on save and populates the Problems panel. |
-| Go source linking | Planned | Click-to-navigate from `.gp` source to the corresponding generated `.go` location using source maps. |
-| Reverse navigation | Planned | Click-to-navigate from generated `.go` back to the original `.gp` source. |
-| Format on save | Planned | `goplus fmt` runs on save, respecting the user's `editor.formatOnSave` setting. |
-| Snippet support | Planned | Built-in snippets for `fn`, `struct`, `enum`, `match`, `impl`, `@derive`, and common decorators. |
-| Hover information | Planned | Hover on enum variants, decorators, and `?`/`!` syntax shows contextual documentation. |
-| Extension marketplace | Planned | Extension is published to the VSCode Marketplace with README, icon, and changelog. |
+| Syntax highlighting | Done | TextMate grammar provides keyword, type, string, comment, decorator, and enum-variant highlighting for `.gp` files. |
+| Inline diagnostics | Done | Errors and warnings from `goplus check` and `goplus lint` render as squiggly underlines with severity, code, and hint. |
+| Lint on save | Done | `goplus lint` runs automatically on save and populates the Problems panel. |
+| Go source linking | Done | Click-to-navigate from `.gp` source to the corresponding generated `.go` location using source maps. |
+| Reverse navigation | Done | Click-to-navigate from generated `.go` back to the original `.gp` source. |
+| Format on save | Done | `goplus fmt` runs on save, respecting the user's `editor.formatOnSave` setting. |
+| Snippet support | Done | Built-in snippets for `fn`, `struct`, `enum`, `match`, `impl`, `@derive`, and common decorators. |
+| Hover information | Done | Hover on enum variants, decorators, and `?`/`!` syntax shows contextual documentation. |
+| Extension marketplace | Partial | Extension is packaged as `.vsix` with README, icon, and changelog; marketplace publishing pending publisher account. |
 
 ## Contribution Priorities
 

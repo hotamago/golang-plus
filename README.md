@@ -147,7 +147,7 @@ See [ROADMAP.md](ROADMAP.md) for the detailed source of truth.
 Short status:
 - v1.x stabilization is complete for the current syntax.
 - v2 tooling is **complete**. The tooling foundation is robust, featuring deterministic formatting, linting, source maps, topological build graphs, and strong decorator validation.
-- v3 (VS Code Extension & LSP) is planned.
+- v3 VSCode Extension is **complete**. Install from `editors/vscode/` or the packaged `.vsix`.
 
 ## Contributing
 
