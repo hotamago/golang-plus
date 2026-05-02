@@ -65,8 +65,35 @@ const DERIVE_KIND_DOCS = {
     'JsonUnmarshal': '**JsonUnmarshal** — generates `func (t *Type) UnmarshalJSON(data []byte) error` for JSON deserialization.',
 };
 class GoplusHoverProvider {
-    async findDefinitionAndHover(word) {
-        // Simple regex search across workspace .gp files
+    async findDefinitionAndHover(document, position, word) {
+        // 1. Local scope search (upwards from current line)
+        for (let i = position.line; i >= 0; i--) {
+            const text = document.lineAt(i).text;
+            // Check for local variable declaration
+            const localPattern = new RegExp(`^\\s*(?:(?:let|var|const)\\s+${word}\\b|${word}\\s*:=)`);
+            if (localPattern.test(text)) {
+                const md = new vscode.MarkdownString();
+                md.appendCodeblock(text.trim(), 'gp');
+                return new vscode.Hover(md);
+            }
+            // Check for function parameter
+            const fnPattern = /^\s*fn(?: \w+)?\s+\w+\((.*)\)/;
+            const match = text.match(fnPattern);
+            if (match) {
+                const params = match[1];
+                const paramPattern = new RegExp(`\\b${word}\\s*:`);
+                if (paramPattern.test(params)) {
+                    const typeMatch = params.match(new RegExp(`\\b${word}\\s*:\\s*([^,)]+)`));
+                    const paramType = typeMatch ? typeMatch[1].trim() : 'unknown';
+                    const md = new vscode.MarkdownString();
+                    md.appendCodeblock(`(parameter) ${word}: ${paramType}`, 'gp');
+                    return new vscode.Hover(md);
+                }
+                // Stop searching upwards if we hit a function definition boundary
+                break;
+            }
+        }
+        // 2. Global search across workspace .gp files
         const uris = await vscode.workspace.findFiles('**/*.gp', '**/node_modules/**');
         const docs = new Set(vscode.workspace.textDocuments.filter(d => d.languageId === 'goplus'));
         for (const uri of uris) {
@@ -125,6 +152,25 @@ class GoplusHoverProvider {
     }
     async provideHover(document, position, _token) {
         const lineText = document.lineAt(position.line).text;
+        // Skip hover if inside a string or comment
+        let inString = false;
+        let inChar = false;
+        for (let i = 0; i < position.character; i++) {
+            const c = lineText[i];
+            const prev = i > 0 ? lineText[i - 1] : '';
+            if (c === '"' && prev !== '\\' && !inChar) {
+                inString = !inString;
+            }
+            else if (c === "'" && prev !== '\\' && !inString) {
+                inChar = !inChar;
+            }
+            else if (c === '/' && prev === '/' && !inString && !inChar) {
+                return undefined;
+            }
+        }
+        if (inString || inChar) {
+            return undefined;
+        }
         const wordRange = document.getWordRangeAtPosition(position, /[@a-zA-Z_!?:][a-zA-Z0-9_]*/);
         if (!wordRange) {
             return undefined;
@@ -134,7 +180,7 @@ class GoplusHoverProvider {
         // Decorator hover: @name
         if (word.startsWith('@')) {
             const decoratorName = word.substring(1);
-            return await this.hoverDecorator(decoratorName, lineText);
+            return await this.hoverDecorator(document, position, decoratorName, lineText);
         }
         // Derive kind hover inside @derive(...)
         if (DERIVE_KIND_DOCS[word] && lineText.includes('@derive')) {
@@ -271,11 +317,11 @@ class GoplusHoverProvider {
         }
         // Fallback: search for definition to show signature and comment
         if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(word)) {
-            return await this.findDefinitionAndHover(word);
+            return await this.findDefinitionAndHover(document, position, word);
         }
         return undefined;
     }
-    async hoverDecorator(name, lineText) {
+    async hoverDecorator(document, position, name, lineText) {
         const doc = DECORATOR_DOCS[name];
         if (!doc) {
             // Unknown/custom decorator
@@ -283,7 +329,7 @@ class GoplusHoverProvider {
             md.appendMarkdown(`### \`@${name}\` — Custom Decorator\n\n`);
             md.appendMarkdown('A user-defined decorator function that wraps the target function.\n\n');
             md.appendMarkdown('Custom decorators take `next` (the original function) and optional arguments, returning a function with the same signature.');
-            const definitionHover = await this.findDefinitionAndHover(name);
+            const definitionHover = await this.findDefinitionAndHover(document, position, name);
             if (definitionHover && definitionHover.contents.length > 0) {
                 const defContent = definitionHover.contents[0];
                 md.appendMarkdown('\n\n**Decorator Definition:**\n\n');

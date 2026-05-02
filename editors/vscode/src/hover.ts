@@ -135,6 +135,25 @@ export class GoplusHoverProvider implements vscode.HoverProvider {
         _token: vscode.CancellationToken
     ): Promise<vscode.Hover | undefined> {
         const lineText = document.lineAt(position.line).text;
+        
+        // Skip hover if inside a string or comment
+        let inString = false;
+        let inChar = false;
+        for (let i = 0; i < position.character; i++) {
+            const c = lineText[i];
+            const prev = i > 0 ? lineText[i - 1] : '';
+            if (c === '"' && prev !== '\\' && !inChar) {
+                inString = !inString;
+            } else if (c === "'" && prev !== '\\' && !inString) {
+                inChar = !inChar;
+            } else if (c === '/' && prev === '/' && !inString && !inChar) {
+                return undefined;
+            }
+        }
+        if (inString || inChar) {
+            return undefined;
+        }
+
         const wordRange = document.getWordRangeAtPosition(position, /[@a-zA-Z_!?:][a-zA-Z0-9_]*/);
         if (!wordRange) {
             return undefined;
