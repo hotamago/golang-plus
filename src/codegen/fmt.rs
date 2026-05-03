@@ -218,7 +218,7 @@ impl GpFormatter {
             ReturnType::ErrorOnly => {
                 self.output.push_str(" -> !");
             }
-            ReturnType::TypeWithError(ty) => {
+            ReturnType::TypeWithError(ty) | ReturnType::GoTypeWithError(ty) => {
                 self.output.push_str(" -> ");
                 self.output.push_str(&ty.raw);
                 self.output.push('!');

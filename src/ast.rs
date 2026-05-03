@@ -123,16 +123,20 @@ pub enum ReturnType {
     Type(TypeRef),
     ErrorOnly,
     TypeWithError(TypeRef),
+    GoTypeWithError(TypeRef),
 }
 
 impl ReturnType {
     pub fn is_error_capable(&self) -> bool {
-        matches!(self, Self::ErrorOnly | Self::TypeWithError(_))
+        matches!(
+            self,
+            Self::ErrorOnly | Self::TypeWithError(_) | Self::GoTypeWithError(_)
+        )
     }
 
     pub fn value_type(&self) -> Option<&TypeRef> {
         match self {
-            Self::Type(ty) | Self::TypeWithError(ty) => Some(ty),
+            Self::Type(ty) | Self::TypeWithError(ty) | Self::GoTypeWithError(ty) => Some(ty),
             Self::Void | Self::ErrorOnly => None,
         }
     }

@@ -11,6 +11,25 @@ impl<'a> Parser<'a> {
         stop_on_newline: bool,
         stop_on_rbrace: bool,
     ) -> Option<(String, Span, bool)> {
+        self.parse_text_segment_with_angles(stop_kinds, stop_on_newline, stop_on_rbrace, true)
+    }
+
+    pub(super) fn parse_expr_text_segment(
+        &mut self,
+        stop_kinds: &[TokenKind],
+        stop_on_newline: bool,
+        stop_on_rbrace: bool,
+    ) -> Option<(String, Span, bool)> {
+        self.parse_text_segment_with_angles(stop_kinds, stop_on_newline, stop_on_rbrace, false)
+    }
+
+    fn parse_text_segment_with_angles(
+        &mut self,
+        stop_kinds: &[TokenKind],
+        stop_on_newline: bool,
+        stop_on_rbrace: bool,
+        track_angles: bool,
+    ) -> Option<(String, Span, bool)> {
         let start_idx = self.idx;
         let mut i = self.idx;
         let mut paren_depth = 0usize;
@@ -38,8 +57,8 @@ impl<'a> Parser<'a> {
                 TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),
                 TokenKind::LBrace => brace_depth += 1,
                 TokenKind::RBrace => brace_depth = brace_depth.saturating_sub(1),
-                TokenKind::Lt => angle_depth += 1,
-                TokenKind::Gt => angle_depth = angle_depth.saturating_sub(1),
+                TokenKind::Lt if track_angles => angle_depth += 1,
+                TokenKind::Gt if track_angles => angle_depth = angle_depth.saturating_sub(1),
                 _ => {}
             }
             i += 1;

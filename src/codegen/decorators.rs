@@ -46,7 +46,7 @@ impl<'a> GoGenerator<'a> {
                 ));
                 out.push_str("\treturn nil\n");
             }
-            ReturnType::TypeWithError(_) => {
+            ReturnType::TypeWithError(_) | ReturnType::GoTypeWithError(_) => {
                 out.push_str(&format!("\tresult, err := {}\n", call));
                 out.push_str("\tif err != nil {\n");
                 out.push_str(&format!(
@@ -110,7 +110,7 @@ impl<'a> GoGenerator<'a> {
                 }
                 out.push_str("\t}\n\treturn lastErr\n");
             }
-            ReturnType::TypeWithError(ty) => {
+            ReturnType::TypeWithError(ty) | ReturnType::GoTypeWithError(ty) => {
                 out.push_str("\tvar lastErr error\n");
                 out.push_str(&format!(
                     "\tfor attempt := 0; attempt < {}; attempt++ {{\n",

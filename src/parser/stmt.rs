@@ -211,7 +211,7 @@ impl<'a> Parser<'a> {
             .start;
         self.skip_separators();
         let (cond_text, cond_span, cond_try) =
-            self.parse_text_segment(&[TokenKind::LBrace], true, false)?;
+            self.parse_expr_text_segment(&[TokenKind::LBrace], true, false)?;
         let then_block = self.parse_block()?;
         self.skip_separators();
         let else_branch = if self.consume(TokenKind::Else) {

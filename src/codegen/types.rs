@@ -59,7 +59,9 @@ pub(super) fn render_return_type(ret: &ReturnType) -> String {
         ReturnType::Void => String::new(),
         ReturnType::Type(ty) => format!(" {}", render_type_ref(ty)),
         ReturnType::ErrorOnly => " error".to_string(),
-        ReturnType::TypeWithError(ty) => format!(" ({}, error)", render_type_ref(ty)),
+        ReturnType::TypeWithError(ty) | ReturnType::GoTypeWithError(ty) => {
+            format!(" ({}, error)", render_type_ref(ty))
+        }
     }
 }
 

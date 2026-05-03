@@ -153,6 +153,82 @@ fn main() {
 }
 
 #[test]
+fn parses_go_grouped_parameters() {
+    let src = r#"
+package main
+
+func CheckPassword(password, hashed string) bool {
+    return password == hashed
+}
+
+func GenerateToken(cfg *Config, id, passwordHash, tokenType string, expiresIn int) (string, error) {
+    return "", nil
+}
+"#;
+    let program = parse_program(src).expect("parse should succeed");
+    let fn_decl = match &program.items[0] {
+        Item::Function(it) => it,
+        _ => panic!("expected function"),
+    };
+    assert_eq!(fn_decl.params.len(), 2);
+    assert_eq!(fn_decl.params[0].name, "password");
+    assert_eq!(fn_decl.params[1].name, "hashed");
+    assert_eq!(fn_decl.params[0].ty.raw, "string");
+    assert_eq!(fn_decl.params[1].ty.raw, "string");
+    let fn_decl = match &program.items[1] {
+        Item::Function(it) => it,
+        _ => panic!("expected function"),
+    };
+    assert_eq!(
+        fn_decl
+            .params
+            .iter()
+            .map(|param| (param.name.as_str(), param.ty.raw.as_str()))
+            .collect::<Vec<_>>(),
+        vec![
+            ("cfg", "*Config"),
+            ("id", "string"),
+            ("passwordHash", "string"),
+            ("tokenType", "string"),
+            ("expiresIn", "int")
+        ]
+    );
+}
+
+#[test]
+fn parses_go_method_declaration_as_raw() {
+    let src = r#"
+package main
+
+func (s *Server) routes(app *fiber.App) {
+    app.Get("/", s.docs("ok"))
+}
+"#;
+    let program = parse_program(src).expect("parse should succeed");
+    assert!(matches!(program.items[0], Item::Raw(_)));
+}
+
+#[test]
+fn parses_comparison_in_if_condition() {
+    let src = r#"
+package main
+
+func CheckPasswordStrength(password string) error {
+    if len(password) < 8 {
+        return nil
+    }
+    return nil
+}
+"#;
+    let program = parse_program(src).expect("parse should succeed");
+    let fn_decl = match &program.items[0] {
+        Item::Function(it) => it,
+        _ => panic!("expected function"),
+    };
+    assert!(matches!(fn_decl.body.stmts[0], Stmt::If(_)));
+}
+
+#[test]
 fn parses_c_style_for_with_index_assignment_as_raw_block() {
     let src = r#"
 package main

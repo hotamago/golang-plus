@@ -226,21 +226,32 @@ impl<'a> Parser<'a> {
 
         while !self.at(TokenKind::RParen) && !self.is_eof() {
             let pstart = self.current_span().start;
-            let name = self.parse_ident("expected parameter name")?;
+            let mut names = vec![self.parse_ident("expected parameter name")?];
             // Support both GoPlus style `name: Type` and Go style `name Type`
             let has_colon = self.consume(TokenKind::Colon);
-            let _ = has_colon; // both paths converge
+            if !has_colon {
+                while self.at(TokenKind::Comma) && self.at_n(1, TokenKind::Ident) {
+                    let next_kind = self.tokens.get(self.idx + 2).map(|token| token.kind);
+                    if matches!(next_kind, Some(TokenKind::Colon | TokenKind::RParen)) {
+                        break;
+                    }
+                    self.idx += 1;
+                    names.push(self.parse_ident("expected parameter name")?);
+                }
+            }
             self.skip_separators();
             let (ty_raw, ty_span, _) =
                 self.parse_text_segment(&[TokenKind::Comma, TokenKind::RParen], true, false)?;
-            params.push(ParamDecl {
-                name,
-                ty: TypeRef {
-                    raw: ty_raw,
-                    span: ty_span.clone(),
-                },
-                span: pstart..ty_span.end,
-            });
+            for name in names {
+                params.push(ParamDecl {
+                    name,
+                    ty: TypeRef {
+                        raw: ty_raw.clone(),
+                        span: ty_span.clone(),
+                    },
+                    span: pstart..ty_span.end,
+                });
+            }
             self.skip_separators();
             if self.consume(TokenKind::Comma) {
                 self.skip_separators();
@@ -377,7 +388,7 @@ impl<'a> Parser<'a> {
             let parts: Vec<&str> = inner.splitn(2, ',').collect();
             if parts.len() == 2 && parts[1].trim() == "error" {
                 let value_ty = parts[0].trim().to_string();
-                return ReturnType::TypeWithError(TypeRef {
+                return ReturnType::GoTypeWithError(TypeRef {
                     raw: value_ty,
                     span,
                 });

@@ -233,7 +233,7 @@ fn validate_next_type_shape(
                 );
             }
         }
-        ReturnType::TypeWithError(_) => {
+        ReturnType::TypeWithError(_) | ReturnType::GoTypeWithError(_) => {
             if !next_has_error || !next_has_value {
                 diagnostics.push(
                     Diagnostic::new(

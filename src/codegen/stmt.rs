@@ -149,6 +149,9 @@ impl<'a> GoGenerator<'a> {
                     ReturnType::ErrorOnly => {
                         format!("{}{}return {}\n", prefix, tabs(indent), mapped)
                     }
+                    ReturnType::GoTypeWithError(_) => {
+                        format!("{}{}return {}\n", prefix, tabs(indent), mapped)
+                    }
                     _ => format!("{}{}return {}\n", prefix, tabs(indent), mapped),
                 };
             }
@@ -163,6 +166,9 @@ impl<'a> GoGenerator<'a> {
             return match ret_type {
                 ReturnType::TypeWithError(_) => {
                     format!("{}{}return {}, nil\n", prefix, tabs(indent), expr)
+                }
+                ReturnType::GoTypeWithError(_) => {
+                    format!("{}{}return {}\n", prefix, tabs(indent), expr)
                 }
                 _ => format!("{}{}return {}\n", prefix, tabs(indent), expr),
             };
@@ -181,7 +187,7 @@ impl<'a> GoGenerator<'a> {
         let (prefix, transformed) = self.lower_nested_try_expr(&expr.text, ret_type, indent);
         out.push_str(&prefix);
         match ret_type {
-            ReturnType::TypeWithError(ty) => {
+            ReturnType::TypeWithError(ty) | ReturnType::GoTypeWithError(ty) => {
                 let val = self.next_tmp("__gp_val");
                 let err = self.next_tmp("__gp_err");
                 out.push_str(&format!(
@@ -451,7 +457,7 @@ impl<'a> GoGenerator<'a> {
     ) -> String {
         match ret_type {
             ReturnType::ErrorOnly => format!("{}return {}\n", tabs(indent), err_var),
-            ReturnType::TypeWithError(ty) => {
+            ReturnType::TypeWithError(ty) | ReturnType::GoTypeWithError(ty) => {
                 let value_ty = ty_hint.unwrap_or(ty);
                 format!(
                     "{}return {}, {}\n",
