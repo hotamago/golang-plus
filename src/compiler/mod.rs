@@ -31,7 +31,8 @@ pub fn check_file_with_format(path: &Path, format: DiagnosticFormat) -> Result<(
     let (project, _) = load_analyzed_project_with_format(path, format)?;
 
     // Strict type validation via Go compiler
-    let tmp_dir = std::env::temp_dir().join("goplus_check_tmp");
+    let tmp_dir = std::env::temp_dir().join(format!("goplus_check_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&tmp_dir);
     let output = transpile_internal(path, &tmp_dir, true)?;
     write_source_map(&output)?;
 
