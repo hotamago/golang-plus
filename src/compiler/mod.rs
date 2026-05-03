@@ -31,7 +31,6 @@ pub fn check_file(path: &Path) -> Result<()> {
 pub fn check_file_with_format(path: &Path, format: DiagnosticFormat) -> Result<()> {
     let (project, _) = load_analyzed_project_with_format(path, format)?;
 
-
     // Strict type validation via Go compiler
     let tmp_id = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -45,11 +44,7 @@ pub fn check_file_with_format(path: &Path, format: DiagnosticFormat) -> Result<(
     let output = transpile_internal(path, &tmp_dir, true)?;
     write_source_map(&output)?;
 
-
     let map_file = output.generated_file.with_extension("go.map");
-    let source_map =
-        navigate::SourceMapFile::from_json_file(&map_file).context("failed to load source map")?;
-
     let source_map =
         navigate::SourceMapFile::from_json_file(&map_file).context("failed to load source map")?;
 
@@ -64,23 +59,11 @@ pub fn check_file_with_format(path: &Path, format: DiagnosticFormat) -> Result<(
         let stderr = String::from_utf8_lossy(&result.stderr);
         let mut build_diagnostics = Vec::new();
 
-
         for line in stderr.lines() {
             let parts: Vec<&str> = line.splitn(4, ':').collect();
             if parts.len() >= 4 {
                 let _file = parts[0].trim();
-                let _file = parts[0].trim();
                 let msg = parts[3..].join(":");
-                if let (Ok(line_num), Ok(col_num)) =
-                    (parts[1].parse::<usize>(), parts[2].parse::<usize>())
-                    && let Some(loc) = navigate::lookup_go_to_gp(&source_map, line_num, col_num)
-                    && let Some(unit) = project.units.iter().find(|u| u.path.ends_with(&loc.file))
-                {
-                    let byte_offset = compute_byte_offset(&unit.source, loc.line, loc.column);
-                    let span = byte_offset..byte_offset;
-                    let mut diag = Diagnostic::new(msg.trim(), Some(span));
-                    diag = diag.with_code("E0500").with_hint("Go strict type error");
-                    build_diagnostics.push((unit.path.clone(), unit.source.clone(), diag));
                 if let (Ok(line_num), Ok(col_num)) =
                     (parts[1].parse::<usize>(), parts[2].parse::<usize>())
                     && let Some(loc) = navigate::lookup_go_to_gp(&source_map, line_num, col_num)
@@ -95,10 +78,7 @@ pub fn check_file_with_format(path: &Path, format: DiagnosticFormat) -> Result<(
             }
         }
 
-
         if !build_diagnostics.is_empty() {
-            let mut grouped: std::collections::HashMap<PathBuf, UnitDiagnostics> =
-                std::collections::HashMap::new();
             let mut grouped: std::collections::HashMap<PathBuf, UnitDiagnostics> =
                 std::collections::HashMap::new();
             for (p, src, diag) in build_diagnostics {
@@ -110,10 +90,6 @@ pub fn check_file_with_format(path: &Path, format: DiagnosticFormat) -> Result<(
                 entry.diagnostics.push(diag);
             }
             let grouped_vec: Vec<UnitDiagnostics> = grouped.into_values().collect();
-            bail!(
-                "{}",
-                render_unit_diagnostics_with_format(&grouped_vec, format)
-            );
             bail!(
                 "{}",
                 render_unit_diagnostics_with_format(&grouped_vec, format)
