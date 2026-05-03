@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { inferTypeOfVariable } from './typeInference';
 
 export class GoplusCompletionProvider implements vscode.CompletionItemProvider {
     async provideCompletionItems(
@@ -14,6 +15,16 @@ export class GoplusCompletionProvider implements vscode.CompletionItemProvider {
         if (namespaceMatch) {
             const enumName = namespaceMatch[1];
             return await this.getEnumVariants(enumName);
+        }
+
+        // If typing Object., suggest methods
+        const methodMatch = linePrefix.match(/([a-zA-Z_][a-zA-Z0-9_]*)\.$/);
+        if (methodMatch) {
+            const objName = methodMatch[1];
+            const objType = await inferTypeOfVariable(document, position, objName);
+            if (objType) {
+                return await this.getMethodsForType(objType);
+            }
         }
 
         // If we are inside @derive(...), suggest derive kinds
@@ -144,5 +155,113 @@ export class GoplusCompletionProvider implements vscode.CompletionItemProvider {
         }
         item.documentation = new vscode.MarkdownString(doc);
         return item;
+    }
+
+    private async getMethodsForType(typeName: string): Promise<vscode.CompletionItem[]> {
+        const uris = await vscode.workspace.findFiles('{**/*.gp,**/*.go}', '**/node_modules/**');
+        const docs = new Set(vscode.workspace.textDocuments.filter(d => d.languageId === 'goplus' || d.languageId === 'go'));
+        for (const uri of uris) {
+            const openDoc = vscode.workspace.textDocuments.find(d => d.uri.fsPath === uri.fsPath);
+            if (!openDoc) {
+                try {
+                    const doc = await vscode.workspace.openTextDocument(uri);
+                    docs.add(doc);
+                } catch {
+                    // Ignore
+                }
+            }
+        }
+
+        const items: vscode.CompletionItem[] = [];
+        
+        // Search for:
+        // impl Type { fn Method(self) ... }
+        // func (r Type) Method() ...
+        // type Type interface { Method() ... }
+        
+        const implPattern = new RegExp(`^\\s*impl\\s+${typeName}\\s*\\{([^}]+)\\}`, 'gm');
+        const goMethodPattern = new RegExp(`^\\s*func\\s*\\(\\s*[a-zA-Z_]\\w*\\s*(?:\\*)?\\s*${typeName}\\s*\\)\\s*([a-zA-Z_]\\w*)\\s*\\(([^)]*)\\)(.*)`, 'gm');
+        const interfacePattern = new RegExp(`^\\s*type\\s+${typeName}\\s+interface\\s*\\{([^}]+)\\}`, 'gm');
+
+        for (const doc of docs) {
+            const docText = doc.getText();
+            
+            // GoPlus impl blocks
+            let implMatch;
+            while ((implMatch = implPattern.exec(docText)) !== null) {
+                const body = implMatch[1];
+                const fnPattern = /^\s*fn(?:\s+mut)?\s+([a-zA-Z_]\w*)\s*\(([^)]*)\)(.*)/gm;
+                let fnMatch;
+                while ((fnMatch = fnPattern.exec(body)) !== null) {
+                    const methodName = fnMatch[1];
+                    const args = fnMatch[2];
+                    const retType = fnMatch[3].trim().replace(/^->\s*/, '');
+                    
+                    const item = new vscode.CompletionItem(methodName, vscode.CompletionItemKind.Method);
+                    item.detail = `(method) ${typeName}.${methodName}(${args}) ${retType}`;
+                    
+                    // Filter out `self` or `mut self` from the arguments to insert
+                    const insertArgs = args.split(',')
+                        .map(s => s.trim())
+                        .filter(s => s && s !== 'self' && s !== 'mut self')
+                        .map(s => s.split(':')[0].trim());
+                        
+                    const snippetParams = insertArgs.map((arg, i) => `\${${i + 1}:${arg}}`).join(', ');
+                    item.insertText = new vscode.SnippetString(`${methodName}(${snippetParams})`);
+                    
+                    items.push(item);
+                }
+            }
+
+            // Go methods
+            let goMatch;
+            while ((goMatch = goMethodPattern.exec(docText)) !== null) {
+                const methodName = goMatch[1];
+                const args = goMatch[2];
+                const retType = goMatch[3].trim();
+                
+                const item = new vscode.CompletionItem(methodName, vscode.CompletionItemKind.Method);
+                item.detail = `(method) ${typeName}.${methodName}(${args}) ${retType}`;
+                
+                const insertArgs = args.split(',')
+                    .map(s => s.trim())
+                    .filter(s => s)
+                    .map(s => s.split(' ')[0].trim());
+                    
+                const snippetParams = insertArgs.map((arg, i) => `\${${i + 1}:${arg}}`).join(', ');
+                item.insertText = new vscode.SnippetString(`${methodName}(${snippetParams})`);
+                
+                items.push(item);
+            }
+
+            // Interface methods
+            let intfMatch;
+            while ((intfMatch = interfacePattern.exec(docText)) !== null) {
+                const body = intfMatch[1];
+                // Interface methods look like: MethodName(args) ReturnType
+                const intfFnPattern = /^\s*([a-zA-Z_]\w*)\s*\(([^)]*)\)(.*)/gm;
+                let fnMatch;
+                while ((fnMatch = intfFnPattern.exec(body)) !== null) {
+                    const methodName = fnMatch[1];
+                    const args = fnMatch[2];
+                    const retType = fnMatch[3].trim();
+                    
+                    const item = new vscode.CompletionItem(methodName, vscode.CompletionItemKind.Method);
+                    item.detail = `(interface method) ${typeName}.${methodName}(${args}) ${retType}`;
+                    
+                    const insertArgs = args.split(',')
+                        .map(s => s.trim())
+                        .filter(s => s)
+                        .map(s => s.split(' ')[0].trim());
+                        
+                    const snippetParams = insertArgs.map((arg, i) => `\${${i + 1}:${arg}}`).join(', ');
+                    item.insertText = new vscode.SnippetString(`${methodName}(${snippetParams})`);
+                    
+                    items.push(item);
+                }
+            }
+        }
+
+        return items;
     }
 }

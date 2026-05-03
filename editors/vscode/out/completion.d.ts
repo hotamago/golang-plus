@@ -4,5 +4,6 @@ export declare class GoplusCompletionProvider implements vscode.CompletionItemPr
     private getEnumVariants;
     private createDeriveCompletion;
     private createDecoratorCompletion;
+    private getMethodsForType;
 }
 //# sourceMappingURL=completion.d.ts.map

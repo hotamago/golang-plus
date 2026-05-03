@@ -38,6 +38,7 @@ const vscode = __importStar(require("vscode"));
 const cp = __importStar(require("child_process"));
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
+const typeInference_1 = require("./typeInference");
 const DECORATOR_DOCS = {
     'log': {
         signature: '@log',
@@ -76,7 +77,15 @@ class GoplusHoverProvider {
             const localPattern = new RegExp(`^\\s*(?:(?:let|var|const)\\s+${word}\\b|${word}\\s*:=)`);
             if (localPattern.test(text)) {
                 const md = new vscode.MarkdownString();
-                md.appendCodeblock(text.trim(), 'gp');
+                const inferredType = await (0, typeInference_1.inferTypeOfVariable)(document, position, word);
+                if (inferredType) {
+                    md.appendCodeblock(`(variable) ${word}: ${inferredType}`, 'gp');
+                    md.appendMarkdown('\n---\n');
+                    md.appendCodeblock(text.trim(), 'gp');
+                }
+                else {
+                    md.appendCodeblock(text.trim(), 'gp');
+                }
                 return new vscode.Hover(md);
             }
             // Check for function parameter
@@ -332,6 +341,112 @@ class GoplusHoverProvider {
             const md = new vscode.MarkdownString();
             md.appendMarkdown('### `return` — Return Statement\n\n');
             md.appendMarkdown('Returns from the current function.\n\n');
+            return new vscode.Hover(md);
+        }
+        // for keyword
+        if (word === 'for') {
+            const md = new vscode.MarkdownString();
+            md.appendMarkdown('### `for` — Loop Statement\n\n');
+            md.appendMarkdown('Starts a loop. GoPlus supports standard `for` loops, `for ... range`, and infinite `for` loops.\n\n');
+            md.appendMarkdown('```gp\nfor idx, value := range values {\n    // ...\n}\n```');
+            return new vscode.Hover(md);
+        }
+        // range keyword
+        if (word === 'range') {
+            const md = new vscode.MarkdownString();
+            md.appendMarkdown('### `range` — Range Clause\n\n');
+            md.appendMarkdown('Used in a `for` loop to iterate over elements of an array, slice, string, map, or channel.\n\n');
+            return new vscode.Hover(md);
+        }
+        // switch keyword
+        if (word === 'switch') {
+            const md = new vscode.MarkdownString();
+            md.appendMarkdown('### `switch` — Switch Statement\n\n');
+            md.appendMarkdown('Provides multi-way execution. A `switch` statement runs the first case whose value equals the condition expression.\n\n');
+            return new vscode.Hover(md);
+        }
+        // case keyword
+        if (word === 'case') {
+            const md = new vscode.MarkdownString();
+            md.appendMarkdown('### `case` — Switch Case\n\n');
+            md.appendMarkdown('Defines a specific condition branch within a `switch` or `select` statement.\n\n');
+            return new vscode.Hover(md);
+        }
+        // default keyword
+        if (word === 'default') {
+            const md = new vscode.MarkdownString();
+            md.appendMarkdown('### `default` — Default Case\n\n');
+            md.appendMarkdown('The fallback branch in a `switch` or `select` statement if no other cases match.\n\n');
+            return new vscode.Hover(md);
+        }
+        // if keyword
+        if (word === 'if') {
+            const md = new vscode.MarkdownString();
+            md.appendMarkdown('### `if` — If Statement\n\n');
+            md.appendMarkdown('Executes a block of code conditionally.\n\n');
+            return new vscode.Hover(md);
+        }
+        // else keyword
+        if (word === 'else') {
+            const md = new vscode.MarkdownString();
+            md.appendMarkdown('### `else` — Else Statement\n\n');
+            md.appendMarkdown('Executes a block of code if the preceding `if` condition is false.\n\n');
+            return new vscode.Hover(md);
+        }
+        // defer keyword
+        if (word === 'defer') {
+            const md = new vscode.MarkdownString();
+            md.appendMarkdown('### `defer` — Defer Statement\n\n');
+            md.appendMarkdown('Schedules a function call to be run immediately before the surrounding function returns.\n\n');
+            return new vscode.Hover(md);
+        }
+        // go keyword
+        if (word === 'go') {
+            const md = new vscode.MarkdownString();
+            md.appendMarkdown('### `go` — Goroutine\n\n');
+            md.appendMarkdown('Starts the execution of a function call as an independent concurrent thread of control (goroutine).\n\n');
+            return new vscode.Hover(md);
+        }
+        // select keyword
+        if (word === 'select') {
+            const md = new vscode.MarkdownString();
+            md.appendMarkdown('### `select` — Select Statement\n\n');
+            md.appendMarkdown('Lets a goroutine wait on multiple communication operations (channels).\n\n');
+            return new vscode.Hover(md);
+        }
+        // int type
+        if (word === 'int') {
+            const md = new vscode.MarkdownString();
+            md.appendMarkdown('### `int` — Built-in Type\n\n');
+            md.appendMarkdown('A signed integer type that is at least 32 bits in size. It is a distinct type, however, and not an alias for, say, `int32`.\n\n');
+            return new vscode.Hover(md);
+        }
+        // string type
+        if (word === 'string') {
+            const md = new vscode.MarkdownString();
+            md.appendMarkdown('### `string` — Built-in Type\n\n');
+            md.appendMarkdown('The set of all strings of 8-bit bytes, conventionally but not necessarily representing UTF-8-encoded text.\n\n');
+            return new vscode.Hover(md);
+        }
+        // map type
+        if (word === 'map') {
+            const md = new vscode.MarkdownString();
+            md.appendMarkdown('### `map` — Built-in Type\n\n');
+            md.appendMarkdown('An unordered group of elements of one type, called the element type, indexed by a set of unique keys of another type, called the key type.\n\n');
+            return new vscode.Hover(md);
+        }
+        // bool type
+        if (word === 'bool') {
+            const md = new vscode.MarkdownString();
+            md.appendMarkdown('### `bool` — Built-in Type\n\n');
+            md.appendMarkdown('The set of boolean truth values denoted by the predeclared constants `true` and `false`.\n\n');
+            return new vscode.Hover(md);
+        }
+        // error type
+        if (word === 'error') {
+            const md = new vscode.MarkdownString();
+            md.appendMarkdown('### `error` — Built-in Type\n\n');
+            md.appendMarkdown('The built-in interface type for conventionally representing an error condition, with the nil value representing no error.\n\n');
             return new vscode.Hover(md);
         }
         // Fallback: search for definition to show signature and comment

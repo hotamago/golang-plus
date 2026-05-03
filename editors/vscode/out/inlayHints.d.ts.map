@@ -1,0 +1,1 @@
+{"version":3,"file":"inlayHints.d.ts","sourceRoot":"","sources":["../src/inlayHints.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,MAAM,MAAM,QAAQ,CAAC;AAEjC,qBAAa,wBAAyB,YAAW,MAAM,CAAC,kBAAkB;IACtE,iBAAiB,CACb,QAAQ,EAAE,MAAM,CAAC,YAAY,EAC7B,KAAK,EAAE,MAAM,CAAC,KAAK,EACnB,MAAM,EAAE,MAAM,CAAC,iBAAiB,GACjC,MAAM,CAAC,SAAS,EAAE;CA4FxB"}
