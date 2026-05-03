@@ -35,6 +35,9 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GoplusHoverProvider = void 0;
 const vscode = __importStar(require("vscode"));
+const cp = __importStar(require("child_process"));
+const path = __importStar(require("path"));
+const fs = __importStar(require("fs"));
 const DECORATOR_DOCS = {
     'log': {
         signature: '@log',
@@ -93,9 +96,9 @@ class GoplusHoverProvider {
                 break;
             }
         }
-        // 2. Global search across workspace .gp files
-        const uris = await vscode.workspace.findFiles('**/*.gp', '**/node_modules/**');
-        const docs = new Set(vscode.workspace.textDocuments.filter(d => d.languageId === 'goplus'));
+        // 2. Global search across workspace .gp and .go files
+        const uris = await vscode.workspace.findFiles('{**/*.gp,**/*.go}', '**/node_modules/**');
+        const docs = new Set(vscode.workspace.textDocuments.filter(d => d.languageId === 'goplus' || d.languageId === 'go'));
         for (const uri of uris) {
             const openDoc = vscode.workspace.textDocuments.find(d => d.uri.fsPath === uri.fsPath);
             if (!openDoc) {
@@ -108,8 +111,8 @@ class GoplusHoverProvider {
                 }
             }
         }
-        const pattern = new RegExp(`^\\s*(?:fn(?:\\s+mut)?|struct|enum|type|const|var|let)\\s+${word}\\b`);
-        const methodPattern = new RegExp(`^\\s*fn(?:\\s+mut)?\\s+${word}\\b`);
+        const pattern = new RegExp(`^\\s*(?:fn(?:\\s+mut)?|func|struct|enum|type|const|var|let)\\s+${word}\\b`);
+        const methodPattern = new RegExp(`^\\s*(?:fn(?:\\s+mut)?|func)(?:\\s*\\([^)]+\\))?\\s+${word}\\b`);
         for (const doc of docs) {
             for (let i = 0; i < doc.lineCount; i++) {
                 const text = doc.lineAt(i).text;
@@ -118,7 +121,7 @@ class GoplusHoverProvider {
                     let signature = text.trim();
                     let currentLine = i;
                     // If it's a block definition, read until '{' or we read too many lines
-                    if (signature.startsWith('fn') || signature.startsWith('struct') || signature.startsWith('enum')) {
+                    if (signature.startsWith('fn') || signature.startsWith('func') || signature.startsWith('struct') || signature.startsWith('enum')) {
                         while (!signature.includes('{') && currentLine < doc.lineCount - 1 && currentLine - i < 10) {
                             currentLine++;
                             const nextLine = doc.lineAt(currentLine).text.trim();
@@ -152,26 +155,42 @@ class GoplusHoverProvider {
     }
     async provideHover(document, position, _token) {
         const lineText = document.lineAt(position.line).text;
-        // Skip hover if inside a string or comment
-        let inString = false;
-        let inChar = false;
-        for (let i = 0; i < position.character; i++) {
-            const c = lineText[i];
-            const prev = i > 0 ? lineText[i - 1] : '';
-            if (c === '"' && prev !== '\\' && !inChar) {
-                inString = !inString;
+        // Allow hover on import lines (for import path hover)
+        const isImportLine = /^\s*import\s+/.test(lineText);
+        // Skip hover if inside a string or comment (but not on import lines)
+        if (!isImportLine) {
+            let inString = false;
+            let inChar = false;
+            for (let i = 0; i < position.character; i++) {
+                const c = lineText[i];
+                const prev = i > 0 ? lineText[i - 1] : '';
+                if (c === '"' && prev !== '\\' && !inChar) {
+                    inString = !inString;
+                }
+                else if (c === "'" && prev !== '\\' && !inString) {
+                    inChar = !inChar;
+                }
+                else if (c === '/' && prev === '/' && !inString && !inChar) {
+                    return undefined;
+                }
             }
-            else if (c === "'" && prev !== '\\' && !inString) {
-                inChar = !inChar;
-            }
-            else if (c === '/' && prev === '/' && !inString && !inChar) {
+            if (inString || inChar) {
                 return undefined;
             }
         }
-        if (inString || inChar) {
-            return undefined;
+        // Import path hover: show `go doc <pkg>` for the import path
+        if (isImportLine) {
+            const importMatch = lineText.match(/import\s+(?:\w+\s+)?"([^"]+)"/);
+            if (importMatch) {
+                const importPath = importMatch[1];
+                const quoteStart = lineText.indexOf('"');
+                const quoteEnd = lineText.lastIndexOf('"');
+                if (position.character >= quoteStart && position.character <= quoteEnd) {
+                    return await this.hoverImportPath(importPath, document.uri.fsPath);
+                }
+            }
         }
-        const wordRange = document.getWordRangeAtPosition(position, /[@a-zA-Z_!?:][a-zA-Z0-9_]*/);
+        const wordRange = document.getWordRangeAtPosition(position, /[@a-zA-Z_!?:][a-zA-Z0-9_.]*/);
         if (!wordRange) {
             return undefined;
         }
@@ -316,8 +335,33 @@ class GoplusHoverProvider {
             return new vscode.Hover(md);
         }
         // Fallback: search for definition to show signature and comment
-        if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(word)) {
-            return await this.findDefinitionAndHover(document, position, word);
+        if (/^[a-zA-Z_][a-zA-Z0-9_.]*$/.test(word)) {
+            // Handle dot-qualified names: pkg.Symbol
+            if (word.includes('.')) {
+                const dotIdx = word.indexOf('.');
+                const pkgName = word.substring(0, dotIdx);
+                const symbolName = word.substring(dotIdx + 1);
+                // Resolve import path for this package
+                const importPath = this.findImportForPackage(document, pkgName);
+                const goDocArg = importPath ? importPath + '.' + symbolName : word;
+                const cwd = this.findGoModDir(document.uri.fsPath) || path.dirname(document.uri.fsPath);
+                try {
+                    const { stdout } = await this.execGoDoc(goDocArg, cwd);
+                    if (stdout) {
+                        const md = new vscode.MarkdownString();
+                        md.appendMarkdown(`### \`${pkgName}.${symbolName}\`\n\n`);
+                        md.appendCodeblock(stdout.trim(), 'go');
+                        return new vscode.Hover(md);
+                    }
+                }
+                catch {
+                    // Ignore errors
+                }
+            }
+            const defHover = await this.findDefinitionAndHover(document, position, word);
+            if (defHover) {
+                return defHover;
+            }
         }
         return undefined;
     }
@@ -350,6 +394,67 @@ class GoplusHoverProvider {
             }
         }
         return new vscode.Hover(md);
+    }
+    async hoverImportPath(importPath, documentPath) {
+        const cwd = this.findGoModDir(documentPath) || path.dirname(documentPath);
+        try {
+            const { stdout } = await this.execGoDoc(importPath, cwd);
+            if (stdout) {
+                const md = new vscode.MarkdownString();
+                md.appendMarkdown(`### \`import "${importPath}"\`\n\n`);
+                md.appendCodeblock(stdout.trim(), 'go');
+                return new vscode.Hover(md);
+            }
+        }
+        catch {
+            // Ignore
+        }
+        // Fallback: just show the path
+        const md = new vscode.MarkdownString();
+        md.appendMarkdown(`### \`import "${importPath}"\`\n\n`);
+        md.appendMarkdown(`Package \`${importPath.split('/').pop()}\``);
+        return new vscode.Hover(md);
+    }
+    findImportForPackage(document, pkgName) {
+        for (let i = 0; i < document.lineCount; i++) {
+            const line = document.lineAt(i).text;
+            const aliasMatch = line.match(/^\s*import\s+(\w+)\s+"([^"]+)"/);
+            if (aliasMatch && aliasMatch[1] === pkgName) {
+                return aliasMatch[2];
+            }
+            const simpleMatch = line.match(/^\s*import\s+"([^"]+)"/);
+            if (simpleMatch) {
+                const p = simpleMatch[1];
+                if (p.split('/').pop() === pkgName) {
+                    return p;
+                }
+            }
+        }
+        return undefined;
+    }
+    findGoModDir(filePath) {
+        let dir = path.dirname(filePath);
+        for (let i = 0; i < 20; i++) {
+            if (fs.existsSync(path.join(dir, 'go.mod'))) {
+                return dir;
+            }
+            const parent = path.dirname(dir);
+            if (parent === dir) {
+                break;
+            }
+            dir = parent;
+        }
+        return undefined;
+    }
+    execGoDoc(symbol, cwd) {
+        return new Promise((resolve, reject) => {
+            cp.execFile('go', ['doc', symbol], { cwd, timeout: 5000 }, (err, stdout) => {
+                if (err) {
+                    return reject(err);
+                }
+                resolve({ stdout: stdout || '' });
+            });
+        });
     }
 }
 exports.GoplusHoverProvider = GoplusHoverProvider;

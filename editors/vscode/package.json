@@ -2,7 +2,7 @@
   "name": "goplus-lang",
   "displayName": "GoPlus Language Support",
   "description": "First-party VSCode extension for GoPlus (.gp) — syntax highlighting, diagnostics, formatting, navigation, and snippets.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "xpath",
   "license": "Apache-2.0",
   "icon": "icon.png",
