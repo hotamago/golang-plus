@@ -53,23 +53,18 @@ pub fn check_file_with_format(path: &Path, format: DiagnosticFormat) -> Result<(
         for line in stderr.lines() {
             let parts: Vec<&str> = line.splitn(4, ':').collect();
             if parts.len() >= 4 {
-                let file = parts[0].trim();
+                let _file = parts[0].trim();
                 let msg = parts[3..].join(":");
                 if let (Ok(line_num), Ok(col_num)) =
                     (parts[1].parse::<usize>(), parts[2].parse::<usize>())
+                    && let Some(loc) = navigate::lookup_go_to_gp(&source_map, line_num, col_num)
+                    && let Some(unit) = project.units.iter().find(|u| u.path.ends_with(&loc.file))
                 {
-                    if let Some(loc) = navigate::lookup_go_to_gp(&source_map, line_num, col_num) {
-                        if let Some(unit) =
-                            project.units.iter().find(|u| u.path.ends_with(&loc.file))
-                        {
-                            let byte_offset =
-                                compute_byte_offset(&unit.source, loc.line, loc.column);
-                            let span = byte_offset..byte_offset;
-                            let mut diag = Diagnostic::new(msg.trim(), Some(span));
-                            diag = diag.with_code("E0500").with_hint("Go strict type error");
-                            build_diagnostics.push((unit.path.clone(), unit.source.clone(), diag));
-                        }
-                    }
+                    let byte_offset = compute_byte_offset(&unit.source, loc.line, loc.column);
+                    let span = byte_offset..byte_offset;
+                    let mut diag = Diagnostic::new(msg.trim(), Some(span));
+                    diag = diag.with_code("E0500").with_hint("Go strict type error");
+                    build_diagnostics.push((unit.path.clone(), unit.source.clone(), diag));
                 }
             }
         }

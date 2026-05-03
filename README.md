@@ -22,7 +22,7 @@ Long-term vision:
 ## Core Goals
 
 - Practical compatibility with Go toolchain.
-- Go-like syntax with low learning curve.
+- Go-like syntax with low learning curve (standard Go syntax is also supported).
 - Concise error handling via `!` and `?`.
 - Strong enum/match support, including exhaustive checks.
 - Flexible compile-time decorators, including user-defined decorators.
@@ -37,7 +37,7 @@ Long-term vision:
 
 ## Current Status (v1)
 
-- Syntax: `fn`, `struct`, `enum` (simple + tagged generic), `impl`.
+- Syntax: `fn` (and standard Go `func`), `struct`, `enum` (simple + tagged generic), `impl`.
 - Error sugar: `-> T!`, `-> !`, `expr?`.
 - `match` with enum exhaustive checking.
 - `@derive(String, Debug, Equal, JsonMarshal, JsonUnmarshal)` for struct/enum.

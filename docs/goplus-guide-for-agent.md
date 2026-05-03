@@ -123,7 +123,7 @@ Package behavior:
 
 ## Core Syntax
 
-Functions use `fn`; parameters are `name: Type`; return types use `->`.
+Functions use `fn` (or standard Go `func`); parameters are `name: Type` (or `name Type`); return types use `->` (or standard Go returns).
 
 ```gp
 fn add(a: int, b: int) -> int {
@@ -354,7 +354,7 @@ When editing GoPlus:
 
 ## Common Pitfalls
 
-- Do not write Go `func` for top-level GoPlus functions; use `fn`.
+- Go `func` is now allowed for top-level GoPlus functions, as well as `fn`.
 - Do not use `?` inside a function that does not return `!` or `T!`.
 - Do not assume one `.gp` file equals one package in module mode; sibling files
   compile together.
