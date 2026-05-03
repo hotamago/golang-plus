@@ -68,9 +68,9 @@ export class GoplusHoverProvider implements vscode.HoverProvider {
             }
         }
 
-        // 2. Global search across workspace .gp files
-        const uris = await vscode.workspace.findFiles('**/*.gp', '**/node_modules/**');
-        const docs = new Set(vscode.workspace.textDocuments.filter(d => d.languageId === 'goplus'));
+        // 2. Global search across workspace .gp and .go files
+        const uris = await vscode.workspace.findFiles('{**/*.gp,**/*.go}', '**/node_modules/**');
+        const docs = new Set(vscode.workspace.textDocuments.filter(d => d.languageId === 'goplus' || d.languageId === 'go'));
         for (const uri of uris) {
             const openDoc = vscode.workspace.textDocuments.find(d => d.uri.fsPath === uri.fsPath);
             if (!openDoc) {
@@ -83,8 +83,8 @@ export class GoplusHoverProvider implements vscode.HoverProvider {
             }
         }
 
-        const pattern = new RegExp(`^\\s*(?:fn(?:\\s+mut)?|struct|enum|type|const|var|let)\\s+${word}\\b`);
-        const methodPattern = new RegExp(`^\\s*fn(?:\\s+mut)?\\s+${word}\\b`);
+        const pattern = new RegExp(`^\\s*(?:fn(?:\\s+mut)?|func|struct|enum|type|const|var|let)\\s+${word}\\b`);
+        const methodPattern = new RegExp(`^\\s*(?:fn(?:\\s+mut)?|func)(?:\\s*\\([^)]+\\))?\\s+${word}\\b`);
 
         for (const doc of docs) {
             for (let i = 0; i < doc.lineCount; i++) {
@@ -94,7 +94,7 @@ export class GoplusHoverProvider implements vscode.HoverProvider {
                     let signature = text.trim();
                     let currentLine = i;
                     // If it's a block definition, read until '{' or we read too many lines
-                    if (signature.startsWith('fn') || signature.startsWith('struct') || signature.startsWith('enum')) {
+                    if (signature.startsWith('fn') || signature.startsWith('func') || signature.startsWith('struct') || signature.startsWith('enum')) {
                         while (!signature.includes('{') && currentLine < doc.lineCount - 1 && currentLine - i < 10) {
                             currentLine++;
                             const nextLine = doc.lineAt(currentLine).text.trim();
@@ -154,7 +154,7 @@ export class GoplusHoverProvider implements vscode.HoverProvider {
             return undefined;
         }
 
-        const wordRange = document.getWordRangeAtPosition(position, /[@a-zA-Z_!?:][a-zA-Z0-9_]*/);
+        const wordRange = document.getWordRangeAtPosition(position, /[@a-zA-Z_!?:][a-zA-Z0-9_.]*/);
         if (!wordRange) {
             return undefined;
         }
@@ -321,8 +321,29 @@ export class GoplusHoverProvider implements vscode.HoverProvider {
         }
 
         // Fallback: search for definition to show signature and comment
-        if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(word)) {
-            return await this.findDefinitionAndHover(document, position, word);
+        if (/^[a-zA-Z_][a-zA-Z0-9_.]*$/.test(word)) {
+            const defHover = await this.findDefinitionAndHover(document, position, word);
+            if (defHover) {
+                return defHover;
+            }
+
+            // If not found locally and it looks like a package.symbol, try `go doc`
+            if (word.includes('.')) {
+                try {
+                    const cp = require('child_process');
+                    const util = require('util');
+                    const execFileAsync = util.promisify(cp.execFile);
+                    const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+                    const { stdout } = await execFileAsync('go', ['doc', word], { cwd });
+                    if (stdout) {
+                        const md = new vscode.MarkdownString();
+                        md.appendCodeblock(stdout.trim(), 'go');
+                        return new vscode.Hover(md);
+                    }
+                } catch {
+                    // Ignore errors if go doc fails or is unavailable
+                }
+            }
         }
 
         return undefined;
