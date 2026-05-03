@@ -174,6 +174,25 @@ pub fn run_file(path: &Path, out_dir: &Path) -> Result<()> {
     Ok(())
 }
 
+pub fn test_file(path: &Path, out_dir: &Path) -> Result<()> {
+    let output = transpile_internal(path, out_dir, false)?;
+    let mut cmd = Command::new("go");
+    cmd.current_dir(&output.go_work_dir);
+    cmd.arg("test");
+    if output.go_work_dir == output.package_dir {
+        cmd.args(collect_go_test_file_args(&output.package_dir)?);
+    } else {
+        cmd.args(&output.go_args);
+    }
+    configure_go_command(&mut cmd, &output.package_dir)?;
+    let status = cmd.status().context("failed to execute `go test`")?;
+
+    if !status.success() {
+        bail!("go test failed for {}", output.package_dir.display());
+    }
+    Ok(())
+}
+
 #[derive(Clone)]
 struct SourceUnit {
     path: PathBuf,
@@ -228,8 +247,8 @@ mod source_map;
 use diagnostics::render_unit_diagnostics_with_format;
 use emit::{emit_project_package, transpile_internal};
 use go::{
-    configure_go_command, default_binary_name, resolve_module_go_execution,
-    resolve_non_module_go_execution, resolve_user_path, run_gofmt,
+    collect_go_test_file_args, configure_go_command, default_binary_name,
+    resolve_module_go_execution, resolve_non_module_go_execution, resolve_user_path, run_gofmt,
 };
 use module::{
     copy_go_support_files, read_go_module_name, resolve_output_module_root,

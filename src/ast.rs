@@ -39,6 +39,7 @@ pub struct StructDecl {
 pub struct FieldDecl {
     pub name: String,
     pub ty: TypeRef,
+    pub tag: Option<String>,
     pub span: Span,
 }
 

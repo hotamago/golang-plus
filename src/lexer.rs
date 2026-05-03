@@ -112,6 +112,7 @@ pub enum TokenKind {
     Pipe,
 
     #[regex(r#""([^"\\]|\\.)*""#)]
+    #[regex(r"`[^`]*`")]
     StringLit,
     #[regex(r"[0-9][0-9_]*")]
     IntLit,

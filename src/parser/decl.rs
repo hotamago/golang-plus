@@ -23,13 +23,16 @@ impl<'a> Parser<'a> {
                 true,
                 true,
             )?;
+            let (ty_raw, ty_span, tag) = split_struct_field_type_and_tag(&ty_raw, &ty_span);
+            let field_end = tag.as_ref().map(|tag| tag.span.end).unwrap_or(ty_span.end);
             fields.push(FieldDecl {
                 name: field_name,
                 ty: TypeRef {
                     raw: ty_raw,
                     span: ty_span.clone(),
                 },
-                span: fstart..ty_span.end,
+                tag: tag.map(|tag| tag.raw),
+                span: fstart..field_end,
             });
             self.skip_separators();
             self.consume(TokenKind::Comma);
@@ -464,4 +467,44 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::Gt, "expected `>` after type parameters");
         params
     }
+}
+
+struct ParsedFieldTag {
+    raw: String,
+    span: std::ops::Range<usize>,
+}
+
+fn split_struct_field_type_and_tag(
+    raw: &str,
+    span: &std::ops::Range<usize>,
+) -> (String, std::ops::Range<usize>, Option<ParsedFieldTag>) {
+    let trimmed_end = raw.trim_end().len();
+    let trimmed = &raw[..trimmed_end];
+    let Some(tag_end_rel) = trimmed.rfind('`') else {
+        return (raw.trim().to_string(), span.clone(), None);
+    };
+    let Some(tag_start_rel) = trimmed[..tag_end_rel].rfind('`') else {
+        return (raw.trim().to_string(), span.clone(), None);
+    };
+    if !trimmed[tag_end_rel + 1..].trim().is_empty() {
+        return (raw.trim().to_string(), span.clone(), None);
+    }
+
+    let type_raw = trimmed[..tag_start_rel].trim_end();
+    if type_raw.is_empty() {
+        return (raw.trim().to_string(), span.clone(), None);
+    }
+
+    let leading_ws = raw.len().saturating_sub(raw.trim_start().len());
+    let type_span = span.start + leading_ws..span.start + tag_start_rel;
+    let tag_span = span.start + tag_start_rel..span.start + tag_end_rel + 1;
+    let tag_raw = trimmed[tag_start_rel..=tag_end_rel].to_string();
+    (
+        type_raw.trim().to_string(),
+        type_span,
+        Some(ParsedFieldTag {
+            raw: tag_raw,
+            span: tag_span,
+        }),
+    )
 }

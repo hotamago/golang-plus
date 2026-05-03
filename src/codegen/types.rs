@@ -473,6 +473,22 @@ pub(super) fn is_error_ctor(expr: &str) -> bool {
     expr.trim().starts_with("error(")
 }
 
+pub(super) fn is_direct_error_expr(expr: &str) -> bool {
+    let trimmed = expr.trim();
+    trimmed.ends_with(".Error") || is_error_value_expr(trimmed)
+}
+
+pub(super) fn is_error_value_expr(expr: &str) -> bool {
+    let trimmed = expr.trim();
+    if !trimmed
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+    {
+        return false;
+    }
+    trimmed == "err" || trimmed.ends_with("Err") || trimmed.ends_with("Error")
+}
+
 pub(super) fn map_error_ctor(expr: &str, errors_name: &str) -> String {
     expr.replacen("error(", &format!("{errors_name}.New("), 1)
 }

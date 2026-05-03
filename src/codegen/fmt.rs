@@ -93,8 +93,13 @@ impl GpFormatter {
         self.emit_derives(&decl.derives);
         self.output.push_str(&format!("struct {} {{\n", decl.name));
         for field in &decl.fields {
+            let tag = field
+                .tag
+                .as_ref()
+                .map(|tag| format!(" {}", tag))
+                .unwrap_or_default();
             self.output
-                .push_str(&format!("\t{}: {}\n", field.name, field.ty.raw));
+                .push_str(&format!("\t{}: {}{}\n", field.name, field.ty.raw, tag));
         }
         self.output.push('}');
     }

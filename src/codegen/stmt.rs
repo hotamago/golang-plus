@@ -71,16 +71,26 @@ impl<'a> GoGenerator<'a> {
     ) -> String {
         let expr = self.transform_expr(&expr_stmt.expr.text);
         if expr_stmt.expr.has_try {
-            self.needs_try_helper = true;
             let err = self.next_tmp("__gp_err");
             let mut out = String::new();
-            out.push_str(&format!(
-                "{}if {} := __goplusTry({}); {} != nil {{\n",
-                tabs(indent),
-                err,
-                expr,
-                err
-            ));
+            if is_direct_error_expr(&expr) {
+                out.push_str(&format!(
+                    "{}if {} := {}; {} != nil {{\n",
+                    tabs(indent),
+                    err,
+                    expr,
+                    err
+                ));
+            } else {
+                self.needs_try_helper = true;
+                out.push_str(&format!(
+                    "{}if {} := __goplusTry({}); {} != nil {{\n",
+                    tabs(indent),
+                    err,
+                    expr,
+                    err
+                ));
+            }
             out.push_str(&self.emit_error_return_with_err_var(ret_type, &err, indent + 1, None));
             out.push_str(&format!("{}}}\n", tabs(indent)));
             out
@@ -129,6 +139,9 @@ impl<'a> GoGenerator<'a> {
                     ReturnType::ErrorOnly => format!("{}return {}\n", tabs(indent), mapped),
                     _ => format!("{}return {}\n", tabs(indent), mapped),
                 };
+            }
+            if matches!(ret_type, ReturnType::TypeWithError(_)) && is_error_value_expr(&expr) {
+                return self.emit_error_return_with_err_var(ret_type, &expr, indent, None);
             }
 
             return match ret_type {
