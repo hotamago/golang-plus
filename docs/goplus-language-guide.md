@@ -7,7 +7,7 @@ compiler transpiles them to regular, formatted Go code.
 The goal is not to replace Go. GoPlus keeps the Go toolchain, runtime, package
 system, and ecosystem, while adding a small set of ergonomic features:
 
-- `fn` syntax for functions and methods.
+- `fn` syntax for functions and methods (standard Go `func` is also supported).
 - Concise error returns with `!`.
 - Concise error propagation with `?`.
 - `struct`, `enum`, `impl`, and `match`.
@@ -49,7 +49,7 @@ GoPlus/Go packages.
 
 Implemented today:
 
-- Top-level declarations: `fn`, `struct`, `enum`, `impl`.
+- Top-level declarations: `fn` (and `func`), `struct`, `enum`, `impl`.
 - Imports using Go import paths.
 - Return types: no return, `T`, `!`, and `T!`.
 - `?` on expressions that return an error.
@@ -421,7 +421,7 @@ Generated Go uses type parameters constrained with `any`.
 
 ## Functions
 
-Functions use `fn`:
+Functions use `fn` (or standard Go `func`):
 
 ```gp
 fn add(a: int, b: int) -> int {
@@ -429,7 +429,7 @@ fn add(a: int, b: int) -> int {
 }
 ```
 
-Parameters use `name: Type` syntax. Return types are introduced by `->`.
+Parameters use `name: Type` syntax, but standard Go syntax (`name Type`) is also supported. Return types are introduced by `->`, or by standard Go return types like `(string, error)`.
 
 Return forms:
 
