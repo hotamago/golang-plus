@@ -38,7 +38,11 @@ fn lint_unused_imports(program: &Program, diagnostics: &mut Vec<Diagnostic>) {
                 .to_string()
         };
 
-        if !all_text.contains(&binding) {
+        let is_used = all_text.iter().any(|text| {
+            text == &binding || text.split(|c: char| !c.is_alphanumeric() && c != '_').any(|w| w == binding)
+        });
+
+        if !is_used {
             diagnostics.push(
                 Diagnostic::warning(
                     format!("import `{}` appears unused", import.path),
