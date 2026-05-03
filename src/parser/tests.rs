@@ -153,6 +153,28 @@ fn main() {
 }
 
 #[test]
+fn parses_c_style_for_with_index_assignment_as_raw_block() {
+    let src = r#"
+package main
+
+fn randomText() -> string {
+    alphabet := "abc"
+    out := make([]byte, 10)
+    for i := 0; i < len(out); i++ {
+        out[i] = alphabet[i%len(alphabet)]
+    }
+    return string(out)
+}
+"#;
+    let program = parse_program(src).expect("parse should succeed");
+    let fn_decl = match &program.items[0] {
+        Item::Function(it) => it,
+        _ => panic!("expected function"),
+    };
+    assert!(matches!(fn_decl.body.stmts[2], Stmt::For(_)));
+}
+
+#[test]
 fn parses_struct_tags_and_raw_string_literals() {
     let src = r#"
 package main

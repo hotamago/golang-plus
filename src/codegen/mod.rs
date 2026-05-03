@@ -4,6 +4,7 @@ use regex::Regex;
 
 use crate::{
     ast::*,
+    lexer::{Token, TokenKind, lex},
     sema::{SemanticModel, base_enum_name},
 };
 

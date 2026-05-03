@@ -250,6 +250,8 @@ impl<'a> Parser<'a> {
         let mut i = self.idx;
         let mut brace_depth = 0usize;
         let mut seen_block = false;
+        let expects_block =
+            self.at(TokenKind::For) || self.at(TokenKind::Switch) || self.at(TokenKind::Select);
 
         while i < self.tokens.len() {
             let kind = self.tokens[i].kind;
@@ -269,7 +271,7 @@ impl<'a> Parser<'a> {
                         break;
                     }
                 }
-                TokenKind::Newline | TokenKind::Semi if !seen_block => break,
+                TokenKind::Newline | TokenKind::Semi if !seen_block && !expects_block => break,
                 _ => {}
             }
             i += 1;

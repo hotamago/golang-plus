@@ -175,6 +175,32 @@ fn seed(db: *DB) -> ! {
 }
 
 #[test]
+fn lowers_nested_try_inside_function_call() {
+    let src = r#"
+package main
+
+import "fmt"
+import "strconv"
+
+fn parseNumber(raw: string) -> int! {
+    return strconv.Atoi(raw)?
+}
+
+fn main() -> ! {
+    fmt.Println(parseNumber("42")?)
+    return
+}
+"#;
+    let mut program = parse_program(src).expect("parse ok");
+    let model = analyze(&mut program).expect("sema ok");
+    let go = generate_go(&program, &model);
+    assert!(go.contains(":= parseNumber(\"42\")"));
+    assert!(go.contains("if __gp_err"));
+    assert!(go.contains("fmt.Println(__gp_val"));
+    assert!(!go.contains("parseNumber(\"42\")?"));
+}
+
+#[test]
 fn returns_existing_error_var_in_type_with_error_functions() {
     let src = r#"
 package main

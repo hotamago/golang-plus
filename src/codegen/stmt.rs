@@ -44,7 +44,8 @@ impl<'a> GoGenerator<'a> {
         indent: usize,
     ) -> String {
         let mut out = String::new();
-        let expr = self.transform_expr(&var_decl.expr.text);
+        let (prefix, expr) = self.lower_nested_try_expr(&var_decl.expr.text, ret_type, indent);
+        out.push_str(&prefix);
         if var_decl.expr.has_try {
             let err = self.next_tmp("__gp_err");
             out.push_str(&format!(
@@ -69,10 +70,10 @@ impl<'a> GoGenerator<'a> {
         ret_type: &ReturnType,
         indent: usize,
     ) -> String {
-        let expr = self.transform_expr(&expr_stmt.expr.text);
+        let (prefix, expr) = self.lower_nested_try_expr(&expr_stmt.expr.text, ret_type, indent);
         if expr_stmt.expr.has_try {
             let err = self.next_tmp("__gp_err");
-            let mut out = String::new();
+            let mut out = prefix;
             if is_direct_error_expr(&expr) {
                 out.push_str(&format!(
                     "{}if {} := {}; {} != nil {{\n",
@@ -94,6 +95,8 @@ impl<'a> GoGenerator<'a> {
             out.push_str(&self.emit_error_return_with_err_var(ret_type, &err, indent + 1, None));
             out.push_str(&format!("{}}}\n", tabs(indent)));
             out
+        } else if !prefix.is_empty() {
+            format!("{}{}{}\n", prefix, tabs(indent), expr)
         } else {
             format!("{}{}\n", tabs(indent), expr)
         }
@@ -116,10 +119,16 @@ impl<'a> GoGenerator<'a> {
             return self.emit_return_try(&ret_stmt.exprs[0], ret_type, indent);
         }
 
+        let mut prefix = String::new();
         let rendered = ret_stmt
             .exprs
             .iter()
-            .map(|expr| self.transform_expr(&expr.text))
+            .map(|expr| {
+                let (expr_prefix, lowered) =
+                    self.lower_nested_try_expr(&expr.text, ret_type, indent);
+                prefix.push_str(&expr_prefix);
+                lowered
+            })
             .collect::<Vec<_>>();
 
         if ret_stmt.exprs.len() == 1 {
@@ -130,29 +139,36 @@ impl<'a> GoGenerator<'a> {
                 return match ret_type {
                     ReturnType::TypeWithError(ty) => {
                         format!(
-                            "{}return {}, {}\n",
+                            "{}{}return {}, {}\n",
+                            prefix,
                             tabs(indent),
                             zero_value_expr(&ty.raw),
                             mapped
                         )
                     }
-                    ReturnType::ErrorOnly => format!("{}return {}\n", tabs(indent), mapped),
-                    _ => format!("{}return {}\n", tabs(indent), mapped),
+                    ReturnType::ErrorOnly => {
+                        format!("{}{}return {}\n", prefix, tabs(indent), mapped)
+                    }
+                    _ => format!("{}{}return {}\n", prefix, tabs(indent), mapped),
                 };
             }
             if matches!(ret_type, ReturnType::TypeWithError(_)) && is_error_value_expr(&expr) {
-                return self.emit_error_return_with_err_var(ret_type, &expr, indent, None);
+                return format!(
+                    "{}{}",
+                    prefix,
+                    self.emit_error_return_with_err_var(ret_type, &expr, indent, None)
+                );
             }
 
             return match ret_type {
                 ReturnType::TypeWithError(_) => {
-                    format!("{}return {}, nil\n", tabs(indent), expr)
+                    format!("{}{}return {}, nil\n", prefix, tabs(indent), expr)
                 }
-                _ => format!("{}return {}\n", tabs(indent), expr),
+                _ => format!("{}{}return {}\n", prefix, tabs(indent), expr),
             };
         }
 
-        format!("{}return {}\n", tabs(indent), rendered.join(", "))
+        format!("{}{}return {}\n", prefix, tabs(indent), rendered.join(", "))
     }
 
     pub(super) fn emit_return_try(
@@ -162,7 +178,8 @@ impl<'a> GoGenerator<'a> {
         indent: usize,
     ) -> String {
         let mut out = String::new();
-        let transformed = self.transform_expr(&expr.text);
+        let (prefix, transformed) = self.lower_nested_try_expr(&expr.text, ret_type, indent);
+        out.push_str(&prefix);
         match ret_type {
             ReturnType::TypeWithError(ty) => {
                 let val = self.next_tmp("__gp_val");
@@ -217,11 +234,10 @@ impl<'a> GoGenerator<'a> {
         indent: usize,
     ) -> String {
         let mut out = String::new();
-        out.push_str(&format!(
-            "{}if {} {{\n",
-            tabs(indent),
-            self.transform_expr(&if_stmt.condition.text)
-        ));
+        let (prefix, condition) =
+            self.lower_nested_try_expr(&if_stmt.condition.text, ret_type, indent);
+        out.push_str(&prefix);
+        out.push_str(&format!("{}if {} {{\n", tabs(indent), condition));
         out.push_str(&self.emit_block(&if_stmt.then_block, ret_type, indent + 1));
         out.push_str(&format!("{}}}", tabs(indent)));
         if let Some(else_branch) = &if_stmt.else_branch {
@@ -258,11 +274,9 @@ impl<'a> GoGenerator<'a> {
         }
 
         let mut out = String::new();
-        out.push_str(&format!(
-            "{}switch {} {{\n",
-            tabs(indent),
-            self.transform_expr(&match_stmt.value.text)
-        ));
+        let (prefix, value) = self.lower_nested_try_expr(&match_stmt.value.text, ret_type, indent);
+        out.push_str(&prefix);
+        out.push_str(&format!("{}switch {} {{\n", tabs(indent), value));
         for arm in &match_stmt.arms {
             match &arm.pattern {
                 Pattern::Wildcard { .. } => {
@@ -450,6 +464,39 @@ impl<'a> GoGenerator<'a> {
         }
     }
 
+    fn lower_nested_try_expr(
+        &mut self,
+        text: &str,
+        ret_type: &ReturnType,
+        indent: usize,
+    ) -> (String, String) {
+        let mut expr = text.to_string();
+        let mut prefix = String::new();
+
+        while let Some((start, end)) = find_first_try_operand(&expr) {
+            let operand = expr[start..end - 1].trim();
+            if operand.is_empty() {
+                break;
+            }
+
+            let val = self.next_tmp("__gp_val");
+            let err = self.next_tmp("__gp_err");
+            prefix.push_str(&format!(
+                "{}{}, {} := {}\n",
+                tabs(indent),
+                val,
+                err,
+                self.transform_expr(operand)
+            ));
+            prefix.push_str(&format!("{}if {} != nil {{\n", tabs(indent), err));
+            prefix.push_str(&self.emit_error_return_with_err_var(ret_type, &err, indent + 1, None));
+            prefix.push_str(&format!("{}}}\n", tabs(indent)));
+            expr.replace_range(start..end, &val);
+        }
+
+        (prefix, self.transform_expr(&expr))
+    }
+
     pub(super) fn emit_try_helper(&self) -> String {
         let fmt_name = self
             .imports
@@ -462,4 +509,85 @@ impl<'a> GoGenerator<'a> {
             "func __goplusTry(values ...any) error {{\n\tif len(values) == 0 {{\n\t\treturn nil\n\t}}\n\tlast := values[len(values)-1]\n\tif last == nil {{\n\t\treturn nil\n\t}}\n\tif err, ok := last.(error); ok {{\n\t\treturn err\n\t}}\n\treturn {fmt_name}.Errorf(\"try expression must end with error\")\n}}"
         )
     }
+}
+
+fn find_first_try_operand(text: &str) -> Option<(usize, usize)> {
+    let tokens = lex(text).ok()?;
+    let question_idx = tokens
+        .iter()
+        .position(|token| token.kind == TokenKind::Question)?;
+    if question_idx == 0 {
+        return None;
+    }
+    let start_idx = find_operand_start_token(&tokens, question_idx)?;
+    Some((tokens[start_idx].span.start, tokens[question_idx].span.end))
+}
+
+fn find_operand_start_token(tokens: &[Token], question_idx: usize) -> Option<usize> {
+    let mut paren_depth = 0usize;
+    let mut bracket_depth = 0usize;
+    let mut brace_depth = 0usize;
+
+    for idx in (0..question_idx).rev() {
+        let kind = tokens[idx].kind;
+        match kind {
+            TokenKind::RParen => {
+                paren_depth += 1;
+                continue;
+            }
+            TokenKind::RBracket => {
+                bracket_depth += 1;
+                continue;
+            }
+            TokenKind::RBrace => {
+                brace_depth += 1;
+                continue;
+            }
+            TokenKind::LParen if paren_depth > 0 => {
+                paren_depth -= 1;
+                continue;
+            }
+            TokenKind::LBracket if bracket_depth > 0 => {
+                bracket_depth -= 1;
+                continue;
+            }
+            TokenKind::LBrace if brace_depth > 0 => {
+                brace_depth -= 1;
+                continue;
+            }
+            _ => {}
+        }
+
+        if paren_depth == 0 && bracket_depth == 0 && brace_depth == 0 && is_expr_delimiter(kind) {
+            return (idx + 1 < question_idx).then_some(idx + 1);
+        }
+    }
+
+    Some(0)
+}
+
+fn is_expr_delimiter(kind: TokenKind) -> bool {
+    matches!(
+        kind,
+        TokenKind::LParen
+            | TokenKind::LBracket
+            | TokenKind::LBrace
+            | TokenKind::Comma
+            | TokenKind::Semi
+            | TokenKind::Colon
+            | TokenKind::ColonEq
+            | TokenKind::Eq
+            | TokenKind::Arrow
+            | TokenKind::FatArrow
+            | TokenKind::Plus
+            | TokenKind::Minus
+            | TokenKind::Star
+            | TokenKind::Slash
+            | TokenKind::Percent
+            | TokenKind::Amp
+            | TokenKind::Pipe
+            | TokenKind::Lt
+            | TokenKind::Gt
+            | TokenKind::Bang
+    )
 }
