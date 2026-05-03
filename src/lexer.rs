@@ -16,6 +16,8 @@ pub enum TokenKind {
     Import,
     #[token("fn")]
     Fn,
+    #[token("func")]
+    Func,
     #[token("struct")]
     Struct,
     #[token("enum")]
@@ -110,6 +112,7 @@ pub enum TokenKind {
     Pipe,
 
     #[regex(r#""([^"\\]|\\.)*""#)]
+    #[regex(r"`[^`]*`")]
     StringLit,
     #[regex(r"[0-9][0-9_]*")]
     IntLit,

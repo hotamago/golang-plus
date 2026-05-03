@@ -38,6 +38,11 @@ enum Command {
         #[arg(long, default_value = ".goplusgen")]
         out_dir: PathBuf,
     },
+    Test {
+        source: PathBuf,
+        #[arg(long, default_value = ".goplusgen")]
+        out_dir: PathBuf,
+    },
     Fmt {
         source: PathBuf,
         #[arg(long)]
@@ -97,6 +102,7 @@ fn main() -> anyhow::Result<()> {
             out,
         } => compiler::build_file(&source, &out_dir, out.as_deref()),
         Command::Run { source, out_dir } => compiler::run_file(&source, &out_dir),
+        Command::Test { source, out_dir } => compiler::test_file(&source, &out_dir),
         Command::Fmt {
             source,
             check,

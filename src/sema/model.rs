@@ -170,6 +170,14 @@ pub(super) fn analyze_function(
     );
 
     let mut vars = HashMap::new();
+    for param in &function.params {
+        if model.enums.contains_key(base_enum_name(&param.ty.raw)) {
+            vars.insert(
+                param.name.clone(),
+                base_enum_name(&param.ty.raw).to_string(),
+            );
+        }
+    }
     analyze_block(
         &mut function.body,
         &function.ret,
@@ -196,6 +204,14 @@ pub(super) fn analyze_method(
 
     let mut vars = HashMap::new();
     vars.insert("self".to_string(), base_enum_name(target).to_string());
+    for param in &method.params {
+        if enums.contains_key(base_enum_name(&param.ty.raw)) {
+            vars.insert(
+                param.name.clone(),
+                base_enum_name(&param.ty.raw).to_string(),
+            );
+        }
+    }
     analyze_block(&mut method.body, &method.ret, enums, diagnostics, &mut vars);
 }
 

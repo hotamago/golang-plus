@@ -1231,7 +1231,9 @@ The current implementation is intentionally small. Important limitations:
 - Parser coverage is stabilized for v1.x syntax, with raw passthrough for
   unsupported Go-like forms.
 - `for`, `switch`, and `select` statements are recognized and emitted as raw Go.
-- `goplus fmt --check` exists, but there is no rewriting GoPlus formatter yet.
+- Use `goplus test <file-or-dir> --out-dir .goplusgen` to transpile `.gp`
+  sources before running Go tests for the generated package.
+- `goplus fmt` and `goplus fmt --check` are available for GoPlus sources.
 - `--emit-source-map` writes readable JSON mappings for declarations,
   functions, match arms, and statements.
 - `@derive` supports only `String`.

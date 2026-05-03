@@ -139,3 +139,57 @@ fn load() -> Result<int> {
     assert!(!go.contains("ResultOk<int>"));
     assert!(!go.contains("Result<int>"));
 }
+
+#[test]
+fn emits_struct_tags_unchanged() {
+    let src = r#"
+package main
+
+struct User {
+    Email: string `json:"email" gorm:"column:email"`
+}
+"#;
+    let mut program = parse_program(src).expect("parse ok");
+    let model = analyze(&mut program).expect("sema ok");
+    let go = generate_go(&program, &model);
+    assert!(go.contains(r#"Email string `json:"email" gorm:"column:email"`"#));
+}
+
+#[test]
+fn lowers_try_on_chained_error_field() {
+    let src = r#"
+package main
+
+fn seed(db: *DB) -> ! {
+    db.Model().Where("key = ?", "course_level").Count().Error?
+    return
+}
+"#;
+    let mut program = parse_program(src).expect("parse ok");
+    let model = analyze(&mut program).expect("sema ok");
+    let go = generate_go(&program, &model);
+    assert!(go.contains(
+        "if __gp_err0 := db.Model().Where(\"key = ?\", \"course_level\").Count().Error; __gp_err0 != nil {"
+    ));
+    assert!(!go.contains(".Error?"));
+}
+
+#[test]
+fn returns_existing_error_var_in_type_with_error_functions() {
+    let src = r#"
+package main
+
+fn load() -> *User! {
+    err := fetchError()
+    if err != nil {
+        return err
+    }
+    return &User{}
+}
+"#;
+    let mut program = parse_program(src).expect("parse ok");
+    let model = analyze(&mut program).expect("sema ok");
+    let go = generate_go(&program, &model);
+    assert!(go.contains("return nil, err"));
+    assert!(!go.contains("return err, nil"));
+}

@@ -5,10 +5,16 @@ impl<'a> GoGenerator<'a> {
         let mut out = String::new();
         out.push_str(&format!("type {} struct {{\n", struct_decl.name));
         for field in &struct_decl.fields {
+            let tag = field
+                .tag
+                .as_ref()
+                .map(|tag| format!(" {}", tag))
+                .unwrap_or_default();
             out.push_str(&format!(
-                "\t{} {}\n",
+                "\t{} {}{}\n",
                 field.name,
-                render_type_ref(&field.ty)
+                render_type_ref(&field.ty),
+                tag
             ));
         }
         out.push('}');

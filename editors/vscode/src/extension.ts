@@ -6,6 +6,7 @@ import { GoplusHoverProvider } from './hover';
 import { GoplusDocumentSymbolProvider } from './symbols';
 import { buildFile, runFile } from './runner';
 import { GoplusCompletionProvider } from './completion';
+import { GoplusInlayHintsProvider } from './inlayHints';
 
 const GP_SELECTOR: vscode.DocumentSelector = { language: 'goplus', scheme: 'file' };
 
@@ -92,7 +93,16 @@ export function activate(context: vscode.ExtensionContext): void {
             new GoplusCompletionProvider(),
             '@', // trigger for decorators
             '(', // trigger for derive kinds
-            ':'  // trigger for enum variants (::)
+            ':', // trigger for enum variants (::)
+            '.'  // trigger for method access
+        )
+    );
+
+    // --- Inlay Hints Provider ---
+    context.subscriptions.push(
+        vscode.languages.registerInlayHintsProvider(
+            GP_SELECTOR,
+            new GoplusInlayHintsProvider()
         )
     );
 

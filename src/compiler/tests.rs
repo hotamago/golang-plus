@@ -4,7 +4,7 @@ use tempfile::tempdir;
 
 use super::{
     DiagnosticFormat, GENERATED_GO_FILE_NAME, build_file, check_file_with_format, fmt_check_file,
-    transpile_file, transpile_file_with_options,
+    test_file, transpile_file, transpile_file_with_options,
 };
 
 #[test]
@@ -416,6 +416,83 @@ fn main() -> ! {
     assert!(generated.contains("f \"fmt\""));
     assert!(generated.contains("type Result[T any] struct"));
     assert!(generated.contains("ResultOk[int](7)"));
+}
+
+#[test]
+fn build_supports_go_arrays_slices_and_maps() {
+    let dir = tempdir().expect("tempdir");
+    let src = dir.path().join("main.gp");
+    fs::write(
+        &src,
+        r#"
+package main
+
+fn total() -> int {
+    nums := []int{1, 2, 3}
+    fixed := [2]string{"a", "bb"}
+    labels := map[string]int{"a": len(fixed[0]), "b": nums[1]}
+    sum := 0
+    for _, n := range nums {
+        sum += n
+    }
+    if labels["a"] > 0 {
+        sum += labels["b"]
+    }
+    return sum
+}
+
+fn main() -> ! {
+    if total() == 0 {
+        return error("bad total")
+    }
+    return
+}
+"#,
+    )
+    .expect("write");
+    let out_dir = dir.path().join(".goplusgen");
+    let out_bin = dir.path().join(if cfg!(windows) {
+        "collections.exe"
+    } else {
+        "collections"
+    });
+    assert!(build_file(&src, &out_dir, Some(&out_bin)).is_ok());
+    assert!(out_bin.exists());
+}
+
+#[test]
+fn test_command_transpiles_before_go_test() {
+    let dir = tempdir().expect("tempdir");
+    let src = dir.path().join("math.gp");
+    fs::write(
+        &src,
+        r#"
+package main
+
+fn Add(a: int, b: int) -> int {
+    return a + b
+}
+"#,
+    )
+    .expect("write gp");
+    fs::write(
+        dir.path().join("math_test.go"),
+        r#"
+package main
+
+import "testing"
+
+func TestAdd(t *testing.T) {
+    if Add(2, 3) != 5 {
+        t.Fatal("bad sum")
+    }
+}
+"#,
+    )
+    .expect("write test");
+
+    let out_dir = dir.path().join(".goplusgen");
+    assert!(test_file(&src, &out_dir).is_ok());
 }
 
 #[test]

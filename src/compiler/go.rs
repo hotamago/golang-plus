@@ -68,6 +68,44 @@ pub(super) fn collect_go_file_args(package_dir: &Path) -> Result<Vec<OsString>> 
     Ok(files)
 }
 
+pub(super) fn collect_go_test_file_args(package_dir: &Path) -> Result<Vec<OsString>> {
+    let mut files = Vec::new();
+    for entry in fs::read_dir(package_dir).with_context(|| {
+        format!(
+            "failed to read generated package dir {}",
+            package_dir.display()
+        )
+    })? {
+        let entry =
+            entry.with_context(|| format!("failed to inspect {}", package_dir.display()))?;
+        let file_type = entry
+            .file_type()
+            .with_context(|| format!("failed to inspect {}", entry.path().display()))?;
+        if !file_type.is_file() {
+            continue;
+        }
+
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("go") {
+            continue;
+        }
+
+        let Some(file_name) = path.file_name() else {
+            continue;
+        };
+        files.push(file_name.to_os_string());
+    }
+
+    files.sort();
+    if files.is_empty() {
+        bail!(
+            "no generated Go files found in package directory {}",
+            package_dir.display()
+        );
+    }
+    Ok(files)
+}
+
 pub(super) fn resolve_user_path(path: &Path) -> Result<PathBuf> {
     if path.is_absolute() {
         Ok(path.to_path_buf())

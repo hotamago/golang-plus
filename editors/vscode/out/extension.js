@@ -43,6 +43,7 @@ const hover_1 = require("./hover");
 const symbols_1 = require("./symbols");
 const runner_1 = require("./runner");
 const completion_1 = require("./completion");
+const inlayHints_1 = require("./inlayHints");
 const GP_SELECTOR = { language: 'goplus', scheme: 'file' };
 let diagnosticCollection;
 function activate(context) {
@@ -86,8 +87,11 @@ function activate(context) {
     // --- Completion Provider ---
     context.subscriptions.push(vscode.languages.registerCompletionItemProvider(GP_SELECTOR, new completion_1.GoplusCompletionProvider(), '@', // trigger for decorators
     '(', // trigger for derive kinds
-    ':' // trigger for enum variants (::)
+    ':', // trigger for enum variants (::)
+    '.' // trigger for method access
     ));
+    // --- Inlay Hints Provider ---
+    context.subscriptions.push(vscode.languages.registerInlayHintsProvider(GP_SELECTOR, new inlayHints_1.GoplusInlayHintsProvider()));
     // --- Commands ---
     context.subscriptions.push(vscode.commands.registerCommand('goplus.checkFile', async () => {
         const editor = vscode.window.activeTextEditor;

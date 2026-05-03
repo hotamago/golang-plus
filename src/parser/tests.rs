@@ -151,3 +151,82 @@ fn main() {
     assert!(matches!(fn_decl.body.stmts[2], Stmt::Assign(_)));
     assert!(matches!(fn_decl.body.stmts[4], Stmt::For(_)));
 }
+
+#[test]
+fn parses_struct_tags_and_raw_string_literals() {
+    let src = r#"
+package main
+
+struct User {
+    Email: string `json:"email" gorm:"column:email"`
+}
+
+fn pattern() -> string {
+    return `[!@#$%^&*()]`
+}
+"#;
+    let program = parse_program(src).expect("parse should succeed");
+    let struct_decl = match &program.items[0] {
+        Item::Struct(it) => it,
+        _ => panic!("expected struct"),
+    };
+    assert_eq!(
+        struct_decl.fields[0].tag.as_deref(),
+        Some(r#"`json:"email" gorm:"column:email"`"#)
+    );
+}
+
+#[test]
+fn parses_password_validator_control_flow_as_raw_go() {
+    let src = r#"
+package auth
+
+import "strings"
+import "unicode"
+
+fn CheckPasswordStrength(password: string) -> ! {
+    upper := false
+    lower := false
+    digit := false
+    special := false
+    specialChars := "!@#$%^&*()_+-=[]{}|;:,.<>?"
+
+    for _, r := range password {
+        switch {
+        case unicode.IsUpper(r):
+            upper = true
+        case unicode.IsLower(r):
+            lower = true
+        case unicode.IsDigit(r):
+            digit = true
+        case strings.ContainsRune(specialChars, r):
+            special = true
+        }
+    }
+
+    if !upper {
+        return error("Password must contain at least one uppercase letter.")
+    }
+    return
+}
+"#;
+    let program = parse_program(src).expect("parse should succeed");
+    let fn_decl = match &program.items[0] {
+        Item::Function(it) => it,
+        _ => panic!("expected function"),
+    };
+    assert!(
+        fn_decl
+            .body
+            .stmts
+            .iter()
+            .any(|stmt| matches!(stmt, Stmt::For(_)))
+    );
+    assert!(
+        fn_decl
+            .body
+            .stmts
+            .iter()
+            .any(|stmt| matches!(stmt, Stmt::If(_)))
+    );
+}

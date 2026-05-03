@@ -53,6 +53,7 @@ Long-term vision:
   - `goplus transpile`
   - `goplus build`
   - `goplus run`
+  - `goplus test`
   - `goplus fmt` (and `goplus fmt --check`)
   - `goplus lint`
   - `goplus navigate`
@@ -86,6 +87,7 @@ First, download and install `goplus` from the [Releases](https://github.com/hota
 goplus check examples/demo.gp
 goplus transpile examples/demo.gp --out-dir .goplusgen
 goplus run examples/demo.gp --out-dir .goplusgen
+goplus test examples/demo.gp --out-dir .goplusgen
 ```
 
 `goplus` runs a standalone `.gp` path outside a Go module as the selected file.
@@ -96,6 +98,10 @@ Mixed-source example:
 ```bash
 goplus run examples/link-source/main.gp --out-dir .goplusgen
 ```
+
+For packages with Go tests, use `goplus test <file-or-dir> --out-dir .goplusgen`.
+It transpiles `.gp` sources first, copies sibling `.go`/`*_test.go` files into the
+generated package, then invokes `go test` against the generated Go package.
 
 The `examples/link-source` sample now includes a real `go.mod` plus nested `pkg/...` and `internal/...` packages, so it shows both same-package linking and normal imported package boundaries.
 Most of that example is written in `.gp`; it keeps only one `.go` bridge file to demonstrate GoPlus/Go interop explicitly.

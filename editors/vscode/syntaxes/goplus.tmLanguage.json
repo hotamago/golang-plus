@@ -91,7 +91,7 @@
       "patterns": [
         {
           "name": "keyword.control.goplus",
-          "match": "\\b(return|if|else|for|match|switch|select|defer|go|continue|break|fallthrough)\\b"
+          "match": "\\b(return|if|else|for|match|switch|case|default|select|defer|go|continue|break|fallthrough|range)\\b"
         },
         {
           "name": "keyword.declaration.goplus",
@@ -233,7 +233,7 @@
       "patterns": [
         {
           "name": "storage.type.builtin.goplus",
-          "match": "\\b(string|int|int8|int16|int32|int64|uint|uint8|uint16|uint32|uint64|float32|float64|complex64|complex128|byte|rune|bool|error|uintptr|any|interface)\\b"
+          "match": "\\b(string|int|int8|int16|int32|int64|uint|uint8|uint16|uint32|uint64|float32|float64|complex64|complex128|byte|rune|bool|error|uintptr|any|interface|map)\\b"
         },
         {
           "name": "storage.type.goplus",
