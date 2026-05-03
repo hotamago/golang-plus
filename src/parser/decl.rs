@@ -121,7 +121,7 @@ impl<'a> Parser<'a> {
         while !self.at(TokenKind::RBrace) && !self.is_eof() {
             let decorators = self.parse_annotations();
             self.skip_separators();
-            if !self.at(TokenKind::Fn) {
+            if !self.at(TokenKind::Fn) && !self.at(TokenKind::Func) {
                 self.diagnostics.push(Diagnostic::new(
                     "expected method declaration inside impl",
                     Some(self.current_span()),
@@ -146,10 +146,7 @@ impl<'a> Parser<'a> {
         })
     }
     pub(super) fn parse_fn_decl(&mut self, decorators: Vec<Decorator>) -> Option<FnDecl> {
-        let start = self
-            .expect_token(TokenKind::Fn, "expected `fn`")?
-            .span
-            .start;
+        let start = self.consume_fn_or_func()?.start;
         let name = self.parse_ident("expected function name")?;
         let type_params = self.parse_type_params();
         let (params, _) = self.parse_params(false)?;
@@ -169,10 +166,7 @@ impl<'a> Parser<'a> {
     }
 
     pub(super) fn parse_method_decl(&mut self, decorators: Vec<Decorator>) -> Option<MethodDecl> {
-        let start = self
-            .expect_token(TokenKind::Fn, "expected `fn`")?
-            .span
-            .start;
+        let start = self.consume_fn_or_func()?.start;
         let name = self.parse_ident("expected method name")?;
         let type_params = self.parse_type_params();
         let (params, receiver) = self.parse_params(true)?;
@@ -230,7 +224,9 @@ impl<'a> Parser<'a> {
         while !self.at(TokenKind::RParen) && !self.is_eof() {
             let pstart = self.current_span().start;
             let name = self.parse_ident("expected parameter name")?;
-            self.expect(TokenKind::Colon, "expected `:` after parameter name");
+            // Support both GoPlus style `name: Type` and Go style `name Type`
+            let has_colon = self.consume(TokenKind::Colon);
+            let _ = has_colon; // both paths converge
             self.skip_separators();
             let (ty_raw, ty_span, _) =
                 self.parse_text_segment(&[TokenKind::Comma, TokenKind::RParen], true, false)?;
@@ -256,11 +252,34 @@ impl<'a> Parser<'a> {
 
     pub(super) fn parse_return_type(&mut self) -> ReturnType {
         self.skip_separators();
-        if !self.consume(TokenKind::Arrow) {
+        let has_arrow = self.consume(TokenKind::Arrow);
+        if !has_arrow {
+            // Go-style: check for return type without arrow
+            // Could be: `func f() Type {`, `func f() (Type, error) {`, or no return type
+            if self.at(TokenKind::LBrace) || self.is_eof() {
+                return ReturnType::Void;
+            }
+            // Check for Go-style tuple return: `(Type, error)`
+            if self.at(TokenKind::LParen) {
+                return self.parse_go_tuple_return();
+            }
+            // Check for Go-style single return type: an Ident before `{`
+            if self.at(TokenKind::Ident)
+                || self.at(TokenKind::Func)
+                || self.at(TokenKind::Star)
+                || self.at(TokenKind::LBracket)
+            {
+                return self.parse_go_single_return();
+            }
+            // No return type
             return ReturnType::Void;
         }
         self.skip_separators();
+        self.parse_arrow_return_type()
+    }
 
+    /// Parse return type after `->` (GoPlus-style)
+    fn parse_arrow_return_type(&mut self) -> ReturnType {
         let start_idx = self.idx;
         let mut i = self.idx;
         let mut paren_depth = 0usize;
@@ -323,6 +342,104 @@ impl<'a> Parser<'a> {
             ReturnType::TypeWithError(ty)
         } else {
             ReturnType::Type(ty)
+        }
+    }
+
+    /// Parse Go-style tuple return: `(string, error)` or `(int, string)`
+    fn parse_go_tuple_return(&mut self) -> ReturnType {
+        let start_idx = self.idx;
+        // Consume the entire (...) segment
+        let mut i = self.idx;
+        let mut paren_depth = 0usize;
+        while i < self.tokens.len() {
+            match self.tokens[i].kind {
+                TokenKind::LParen => paren_depth += 1,
+                TokenKind::RParen => {
+                    paren_depth = paren_depth.saturating_sub(1);
+                    if paren_depth == 0 {
+                        i += 1;
+                        break;
+                    }
+                }
+                _ => {}
+            }
+            i += 1;
+        }
+        let span = self.range_span(start_idx, i).unwrap_or(0..0);
+        let raw_text = self.source[span.clone()].trim().to_string();
+        self.idx = i;
+
+        // Check if this is a Go-style (T, error) pattern
+        if let Some(inner) = raw_text.strip_prefix('(').and_then(|s| s.strip_suffix(')')) {
+            let parts: Vec<&str> = inner.splitn(2, ',').collect();
+            if parts.len() == 2 && parts[1].trim() == "error" {
+                let value_ty = parts[0].trim().to_string();
+                return ReturnType::TypeWithError(TypeRef {
+                    raw: value_ty,
+                    span,
+                });
+            }
+        }
+        // Not a (T, error) pattern, treat as raw Go return type
+        ReturnType::Type(TypeRef {
+            raw: raw_text,
+            span,
+        })
+    }
+
+    /// Parse Go-style single return type: `string`, `int`, etc. before `{`
+    fn parse_go_single_return(&mut self) -> ReturnType {
+        let start_idx = self.idx;
+        let mut i = self.idx;
+        let mut paren_depth = 0usize;
+        let mut bracket_depth = 0usize;
+        let mut angle_depth = 0usize;
+        while i < self.tokens.len() {
+            let kind = self.tokens[i].kind;
+            if paren_depth == 0
+                && bracket_depth == 0
+                && angle_depth == 0
+                && kind == TokenKind::LBrace
+            {
+                break;
+            }
+            match kind {
+                TokenKind::LParen => paren_depth += 1,
+                TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),
+                TokenKind::LBracket => bracket_depth += 1,
+                TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),
+                TokenKind::Lt => angle_depth += 1,
+                TokenKind::Gt => angle_depth = angle_depth.saturating_sub(1),
+                _ => {}
+            }
+            i += 1;
+        }
+        if i <= start_idx {
+            return ReturnType::Void;
+        }
+        let span = self.range_span(start_idx, i).unwrap_or(0..0);
+        let raw = self.source[span.clone()].trim().to_string();
+        self.idx = i;
+        if raw == "error" {
+            return ReturnType::ErrorOnly;
+        }
+        ReturnType::Type(TypeRef { raw, span })
+    }
+
+    /// Consume either `fn` or `func` token, returning its span
+    fn consume_fn_or_func(&mut self) -> Option<std::ops::Range<usize>> {
+        if self.at(TokenKind::Fn) {
+            let token = self.expect_token(TokenKind::Fn, "expected `fn` or `func`")?;
+            Some(token.span)
+        } else if self.at(TokenKind::Func) {
+            let token = self.expect_token(TokenKind::Func, "expected `fn` or `func`")?;
+            Some(token.span)
+        } else {
+            self.diagnostics.push(Diagnostic::new(
+                "expected `fn` or `func`",
+                Some(self.current_span()),
+            ));
+            None
         }
     }
 

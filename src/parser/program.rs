@@ -25,7 +25,7 @@ impl<'a> Parser<'a> {
             let annotations = self.parse_annotations();
             self.skip_separators();
 
-            let item = if self.at(TokenKind::Fn) {
+            let item = if self.at(TokenKind::Fn) || self.at(TokenKind::Func) {
                 self.parse_fn_decl(annotations).map(Item::Function)
             } else if self.at(TokenKind::Struct) {
                 self.parse_struct_decl(annotations).map(Item::Struct)

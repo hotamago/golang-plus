@@ -16,6 +16,8 @@ pub enum TokenKind {
     Import,
     #[token("fn")]
     Fn,
+    #[token("func")]
+    Func,
     #[token("struct")]
     Struct,
     #[token("enum")]

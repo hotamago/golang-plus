@@ -55,6 +55,7 @@ impl<'a> Parser<'a> {
     pub(super) fn synchronize_top_level(&mut self) {
         while !self.is_eof() {
             if self.at(TokenKind::Fn)
+                || self.at(TokenKind::Func)
                 || self.at(TokenKind::Struct)
                 || self.at(TokenKind::Enum)
                 || self.at(TokenKind::Impl)
