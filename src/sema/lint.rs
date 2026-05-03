@@ -39,7 +39,10 @@ fn lint_unused_imports(program: &Program, diagnostics: &mut Vec<Diagnostic>) {
         };
 
         let is_used = all_text.iter().any(|text| {
-            text == &binding || text.split(|c: char| !c.is_alphanumeric() && c != '_').any(|w| w == binding)
+            text == &binding
+                || text
+                    .split(|c: char| !c.is_alphanumeric() && c != '_')
+                    .any(|w| w == binding)
         });
 
         if !is_used {
