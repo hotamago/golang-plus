@@ -35,44 +35,6 @@ Long-term vision:
 - Custom runtime replacing Go runtime.
 - Overly complex type system that hurts simplicity.
 
-## Current Status (v1)
-
-- Syntax: `fn` (and standard Go `func`), `struct`, `enum` (simple + tagged generic), `impl`.
-- Error sugar: `-> T!`, `-> !`, `expr?`.
-- `match` with enum exhaustive checking.
-- `@derive(String, Debug, Equal, JsonMarshal, JsonUnmarshal)` for struct/enum.
-- Package compilation:
-  - Standalone `.gp` files outside a Go module compile as the selected file.
-  - Directories and Go module packages compile all sibling `.gp` files together.
-  - Sibling `.go` files are copied into the generated package so Go and GoPlus code can link together.
-- Compile-time decorators:
-  - Built-in: `@log`, `@retry(times[, backoff_ms])`, `@memoize`.
-  - Custom decorators (Python-like factory style: `next -> wrapped`).
-- CLI:
-  - `goplus check`
-  - `goplus transpile`
-  - `goplus build`
-  - `goplus run`
-  - `goplus test`
-  - `goplus fmt` (and `goplus fmt --check`)
-  - `goplus lint`
-  - `goplus navigate`
-
-## v2 Tooling & DevEx
-
-The compiler is now organized into scalable frontend, semantic, codegen, and
-project orchestration submodules under `src/parser`, `src/sema`, `src/codegen`,
-and `src/compiler`. No core module is intended to grow into a thousand-line
-catch-all file again.
-
-With the completion of v2, the ecosystem now features production-grade tooling:
-- **IDE Diagnostics**: Diagnostics include severity levels (`Error`, `Warning`, `Info`), codes, precise caret spans, and hints. Available via `goplus check --diagnostic-format json`.
-- **Rewriting Formatter**: `goplus fmt` deterministically reformats `.gp` sources.
-- **Linter**: `goplus lint` catches stylistic issues and suspicious code without compiling to Go.
-- **Source Navigation**: `goplus navigate` and generated source maps enable bidirectional lookups (`.gp` ↔ `.go`).
-- **Topological Builds**: The package graph uses Kahn's algorithm to resolve dependencies, transpile in topological order, and catch cycles early.
-- **Strong Decorator Validation**: Full callable signature analysis ensures custom decorators perfectly match their targets.
-
 ## Compiler Architecture
 
 - `lexer` -> `parser` -> `semantic` -> `codegen Go` -> `gofmt`.
@@ -108,6 +70,31 @@ Most of that example is written in `.gp`; it keeps only one `.go` bridge file to
 
 ## Short Example
 
+```go
+package main
+
+import "fmt"
+
+func trace(next func(name string) (string, error), label string) (func(name string) (string, error)) {
+    return func(name string) (string, error) {
+        fmt.Println("trace:", label)
+        return next(name)
+    }
+}
+
+@trace("custom")
+func greet(name string) (string, error) {
+    return "hello " + name, nil
+}
+
+func main() error {
+    msg := greet("goplus")?
+    fmt.Println(msg)
+    return
+}
+```
+
+Same example but with rust-style function type:
 ```gp
 package main
 
@@ -181,6 +168,44 @@ The extension requires the `goplus` CLI to be available in your system `$PATH` (
    - Run `npm install` and `npm run package` (requires `vsce`) to build the extension, or use the pre-built `.vsix` file in the directory.
    - Install the generated `.vsix` file in VSCode (`Extensions: Install from VSIX...` from the command palette).
 
+## Current Status (v1)
+
+- Syntax: `fn` (and standard Go `func`), `struct`, `enum` (simple + tagged generic), `impl`.
+- Error sugar: `-> T!`, `-> !`, `expr?`.
+- `match` with enum exhaustive checking.
+- `@derive(String, Debug, Equal, JsonMarshal, JsonUnmarshal)` for struct/enum.
+- Package compilation:
+  - Standalone `.gp` files outside a Go module compile as the selected file.
+  - Directories and Go module packages compile all sibling `.gp` files together.
+  - Sibling `.go` files are copied into the generated package so Go and GoPlus code can link together.
+- Compile-time decorators:
+  - Built-in: `@log`, `@retry(times[, backoff_ms])`, `@memoize`.
+  - Custom decorators (Python-like factory style: `next -> wrapped`).
+- CLI:
+  - `goplus check`
+  - `goplus transpile`
+  - `goplus build`
+  - `goplus run`
+  - `goplus test`
+  - `goplus fmt` (and `goplus fmt --check`)
+  - `goplus lint`
+  - `goplus navigate`
+
+## v2 Tooling & DevEx
+
+The compiler is now organized into scalable frontend, semantic, codegen, and
+project orchestration submodules under `src/parser`, `src/sema`, `src/codegen`,
+and `src/compiler`. No core module is intended to grow into a thousand-line
+catch-all file again.
+
+With the completion of v2, the ecosystem now features production-grade tooling:
+- **IDE Diagnostics**: Diagnostics include severity levels (`Error`, `Warning`, `Info`), codes, precise caret spans, and hints. Available via `goplus check --diagnostic-format json`.
+- **Rewriting Formatter**: `goplus fmt` deterministically reformats `.gp` sources.
+- **Linter**: `goplus lint` catches stylistic issues and suspicious code without compiling to Go.
+- **Source Navigation**: `goplus navigate` and generated source maps enable bidirectional lookups (`.gp` ↔ `.go`).
+- **Topological Builds**: The package graph uses Kahn's algorithm to resolve dependencies, transpile in topological order, and catch cycles early.
+- **Strong Decorator Validation**: Full callable signature analysis ensures custom decorators perfectly match their targets.
+
 ## Roadmap
 
 See [ROADMAP.md](ROADMAP.md) for the detailed source of truth.
@@ -189,28 +214,3 @@ Short status:
 - v1.x stabilization is complete for the current syntax.
 - v2 tooling is **complete**. The tooling foundation is robust, featuring deterministic formatting, linting, source maps, topological build graphs, and strong decorator validation.
 - v3 VSCode Extension is **complete**. Install from `editors/vscode/` or the packaged `.vsix`.
-
-## Contributing
-
-New contributors are very welcome.
-
-Quick start:
-- Run tests: `cargo test`
-- Run example: `cargo run -- run examples/demo.gp --out-dir .goplusgen`
-- Start reading core modules:
-  - `src/parser/`
-  - `src/sema/`
-  - `src/codegen/`
-  - `src/compiler/`
-
-Areas where contributions are especially useful:
-- Parser and grammar improvements.
-- Additional semantic checks + better test coverage.
-- Better generated Go quality in edge cases.
-- More examples/benchmarks/problem-style samples.
-- Better docs for language spec and migration from Go.
-
-Pull request principles:
-- Include tests for new behavior or bug fixes.
-- Do not reduce readability of generated Go without a strong reason.
-- Keep v1 backward compatibility whenever possible.
